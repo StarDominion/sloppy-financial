@@ -63,6 +63,20 @@ An Electron-based personal finance management application for tracking bills, tr
 - Dynamic tax form system per country/state/province
 - Enhanced AI agent integration for financial insights
 - One-click tax-year document export/zip for accountants
+- Rework "automatic bills" into bill definitions, which when importing bank transactions you can associate definitions instead of auto generating
+
+## Servers vs profile loading (PLANS)
+
+- Profiles will list based on the servers or local storage you've configured. Have electron storage/app data store the server or local storage locations
+- Create a "Setup" page that lets you select a folder or set up mysql/minio
+- Upon opening the app, it will list profiles from all recent local storage locations. 
+- Have an option to open folder on welcome screen which will verify the folder is correctly structured first.
+
+## Encryption ideas:
+
+- Any files uploaded will be encrypted before upload
+- You create an encryption key with a password, and you are asked to put in password any time you view a file.
+
 
 ## Prerequisites
 

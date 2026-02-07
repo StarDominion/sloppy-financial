@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { Database } from "./database/Database";
 
 export type Profile = {
   id: number;
@@ -84,5 +85,7 @@ export async function deleteProfile(id: number): Promise<void> {
 }
 
 export async function touchProfile(id: number): Promise<void> {
-  await query("UPDATE profiles SET last_used_at = NOW() WHERE id = ?", [id]);
+  const db = Database.getInstance();
+  const nowFn = db.dialect === "sqlite" ? "datetime('now')" : "NOW()";
+  await query(`UPDATE profiles SET last_used_at = ${nowFn} WHERE id = ?`, [id]);
 }

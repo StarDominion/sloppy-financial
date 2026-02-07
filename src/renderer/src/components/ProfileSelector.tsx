@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Settings } from "./Settings";
 
 type Profile = {
   id: number;
@@ -16,15 +15,16 @@ type Profile = {
 
 interface ProfileSelectorProps {
   onSelectProfile: (profileId: number) => void;
+  onBackToWorkspace?: () => void;
 }
 
 export function ProfileSelector({
   onSelectProfile,
+  onBackToWorkspace,
 }: ProfileSelectorProps): React.JSX.Element {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"personal" | "corporate">("personal");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -136,24 +136,26 @@ export function ProfileSelector({
           position: "relative",
         }}
       >
-        {/* Settings button */}
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{
-            position: "absolute",
-            top: 50,
-            right: 20,
-            padding: "8px 16px",
-            background: "#333",
-            color: "#fff",
-            border: "1px solid #555",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          ⚙️ Settings
-        </button>
+        {/* Change Workspace button */}
+        {onBackToWorkspace && (
+          <button
+            onClick={onBackToWorkspace}
+            style={{
+              position: "absolute",
+              top: 50,
+              right: 20,
+              padding: "8px 16px",
+              background: "#333",
+              color: "#fff",
+              border: "1px solid #555",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            Change Workspace
+          </button>
+        )}
 
         <h1 style={{ marginBottom: 0 }}>Sloppy Financial</h1>
         <p style={{ color: "#888", marginTop: 0 }}>Select a profile to continue</p>
@@ -518,7 +520,6 @@ export function ProfileSelector({
         )}
       </div>
 
-      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </>
   );
 }

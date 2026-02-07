@@ -25,6 +25,7 @@ import { TransactionForm } from "./TransactionForm";
 import { TransactionDetail } from "./TransactionDetail";
 import { TransactionAnalytics } from "./TransactionAnalytics";
 import { CsvImport } from "./CsvImport";
+import { Settings } from "./Settings";
 
 type TabType =
   | "notes"
@@ -70,6 +71,7 @@ interface WorkspaceProps {
 export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React.JSX.Element {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -279,6 +281,9 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
         break;
       case "csv-import":
         addTab("csv-import");
+        break;
+      case "open-settings":
+        setShowSettings(true);
         break;
       case "switch-profile":
         onSwitchProfile();
@@ -599,6 +604,7 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
           ))
         )}
       </div>
+      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

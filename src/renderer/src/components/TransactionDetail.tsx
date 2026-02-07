@@ -5,23 +5,11 @@ import TagSelector from "./TagSelector";
 const TYPE_LABELS: Record<string, string> = {
   deposit: "Deposit",
   withdrawal: "Withdrawal",
-  transfer: "Transfer",
-  payment: "Payment",
-  refund: "Refund",
-  fee: "Fee",
-  interest: "Interest",
-  other: "Other",
 };
 
 const TYPE_COLORS: Record<string, string> = {
   deposit: "#2da44e",
   withdrawal: "#cf222e",
-  transfer: "#0969da",
-  payment: "#bf8700",
-  refund: "#8957e5",
-  fee: "#fa4549",
-  interest: "#1a7f37",
-  other: "#656d76",
 };
 
 type Transaction = {
@@ -106,7 +94,6 @@ export function TransactionDetail({
     try {
       await window.api.tags.setForTransaction(transactionId, tagIds);
       await loadTags();
-      setEditingTags(false);
       emitDataChange("transactions");
     } catch (err) {
       console.error("Failed to update tags:", err);

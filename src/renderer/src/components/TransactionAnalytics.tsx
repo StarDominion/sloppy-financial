@@ -19,12 +19,6 @@ import {
 const TYPE_COLORS: Record<string, string> = {
   deposit: "#2da44e",
   withdrawal: "#cf222e",
-  transfer: "#0969da",
-  payment: "#bf8700",
-  refund: "#8957e5",
-  fee: "#fa4549",
-  interest: "#1a7f37",
-  other: "#656d76",
 };
 
 const TAG_CHART_COLORS = [

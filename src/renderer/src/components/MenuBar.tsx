@@ -20,6 +20,7 @@ export function MenuBar({ onAction }: MenuBarProps): React.JSX.Element {
 
   const menus = {
     file: [
+      { label: "Workspace Settings", action: "open-settings" },
       { label: "Switch Profile", action: "switch-profile" },
       { type: "separator" },
       { label: "Close Tab", action: "close-tab" },

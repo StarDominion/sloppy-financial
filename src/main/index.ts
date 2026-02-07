@@ -2,14 +2,12 @@ import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
-import { uploadBuffer, getPresignedUrl, downloadObject } from "./minio";
+import { FileStorage } from "./storage/FileStorage";
 import { listNotes, saveNote, deleteNote } from "./notes";
-import { runMigrations } from "./migrations";
 import {
   createReminder,
   deleteReminder,
   listReminders,
-  loadAndScheduleReminders,
 } from "./reminders";
 import { sendReminderNotification } from "./notifications";
 import {
@@ -23,12 +21,19 @@ import {
   updateBillRecord,
   markBillPaid,
   updateBillRecordDocument,
-  initBillScheduler,
 } from "./bills";
-import { getSettings, updateSettings, resetSettings } from "./settings";
-import { testMySQLConnection, testMinIOConnection } from "./connection-tests";
-import { reloadConfig, initConfig } from "./config";
-import { resetPool } from "./db";
+import { testMySQLConnection, testMinIOConnection, testSqliteConnection } from "./connection-tests";
+import {
+  getRecentWorkspaces,
+  openWorkspace,
+  createWorkspace,
+  showOpenFolderDialog,
+  showCreateFolderDialog,
+  getWorkspaceConfig,
+  getCurrentWorkspacePath,
+  updateWorkspaceConfig,
+  removeRecentWorkspace,
+} from "./workspace";
 import {
   listContacts,
   getContact,
@@ -537,15 +542,22 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("minio:upload", async (_, payload) => {
     const buffer = Buffer.from(payload.data);
-    return uploadBuffer(payload.name, payload.mime, buffer);
+    const result = await FileStorage.getInstance().upload(payload.name, payload.mime, buffer);
+    // Return compatible format for backward compatibility
+    return {
+      objectName: result.storageKey,
+      bucket: result.metadata?.bucket || "financial",
+      originalName: result.originalName,
+      md5Hash: result.md5Hash,
+    };
   });
 
   ipcMain.handle("minio:getUrl", async (_, objectName) => {
-    return getPresignedUrl(objectName);
+    return FileStorage.getInstance().getUrl(objectName);
   });
 
   ipcMain.handle("minio:download", async (_, objectName) => {
-    const result = await downloadObject(objectName);
+    const result = await FileStorage.getInstance().download(objectName);
     return {
       data: Array.from(result.data),
       contentType: result.contentType,
@@ -560,44 +572,54 @@ app.whenReady().then(async () => {
   ipcMain.handle("profiles:delete", async (_, id) => deleteProfile(id));
   ipcMain.handle("profiles:touch", async (_, id) => touchProfile(id));
 
-  // Settings IPC
-  ipcMain.handle("settings:get", async () => await getSettings());
-  ipcMain.handle("settings:update", async (_, settings) => {
-    await updateSettings(settings);
-    await reloadConfig();
+  // Connection test IPC
+  ipcMain.handle("settings:testMySQL", async (_, mysqlConfig) =>
+    testMySQLConnection(mysqlConfig),
+  );
+  ipcMain.handle("settings:testMinIO", async (_, minioConfig) =>
+    testMinIOConnection(minioConfig),
+  );
+  ipcMain.handle("settings:testSqlite", async (_, sqliteConfig) =>
+    testSqliteConnection(sqliteConfig),
+  );
 
-    // Recreate the connection pool with new settings
-    await resetPool();
-
+  // Workspace IPC
+  ipcMain.handle("workspace:listRecent", async () => {
+    return getRecentWorkspaces();
+  });
+  ipcMain.handle("workspace:open", async (_, folderPath: string) => {
+    await openWorkspace(folderPath);
     return { success: true };
   });
-  ipcMain.handle("settings:reset", async () => {
-    await resetSettings();
-    await reloadConfig();
-    await resetPool();
+  ipcMain.handle("workspace:create", async (_, folderPath: string, config?: any) => {
+    await createWorkspace(folderPath, config);
+    await openWorkspace(folderPath);
     return { success: true };
   });
-  ipcMain.handle("settings:testMySQL", async (_, config) =>
-    testMySQLConnection(config),
-  );
-  ipcMain.handle("settings:testMinIO", async (_, config) =>
-    testMinIOConnection(config),
-  );
+  ipcMain.handle("workspace:showOpenDialog", async () => {
+    return showOpenFolderDialog();
+  });
+  ipcMain.handle("workspace:showCreateDialog", async () => {
+    return showCreateFolderDialog();
+  });
+  ipcMain.handle("workspace:getConfig", async () => {
+    return getWorkspaceConfig();
+  });
+  ipcMain.handle("workspace:updateConfig", async (_, updates: any) => {
+    const path = getCurrentWorkspacePath();
+    if (!path) throw new Error("No workspace open");
+    await updateWorkspaceConfig(path, updates);
+    return { success: true };
+  });
+  ipcMain.handle("workspace:removeRecent", async (_, folderPath: string) => {
+    await removeRecentWorkspace(folderPath);
+    return { success: true };
+  });
+  ipcMain.handle("workspace:getCurrent", async () => {
+    return getCurrentWorkspacePath();
+  });
 
-  // Initialize config with stored settings
-  await initConfig().catch((err) =>
-    console.error("Config initialization failed:", err),
-  );
-
-  // Run migrations
-  await runMigrations().catch((err) => console.error("Migration failed:", err));
-
-  initBillScheduler();
-
-  loadAndScheduleReminders().catch((error) =>
-    console.error("Startup failed:", error),
-  );
-
+  // No DB/storage initialization at startup - deferred to workspace:open
   createWindow();
 
   app.on("activate", function () {

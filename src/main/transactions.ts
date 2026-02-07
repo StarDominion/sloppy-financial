@@ -1,15 +1,8 @@
 import { query } from "./db";
+import { Database } from "./database/Database";
 import { listTags, createTag, setTagsForTransaction, getTagsForTransaction } from "./tags";
 
-export type TransactionType =
-  | "deposit"
-  | "withdrawal"
-  | "transfer"
-  | "payment"
-  | "refund"
-  | "fee"
-  | "interest"
-  | "other";
+export type TransactionType = "deposit" | "withdrawal";
 
 export type Transaction = {
   id: number;
@@ -179,9 +172,13 @@ export async function checkDuplicateTransactions(
   return duplicateKeys;
 }
 
+export type MatchType = "substring" | "full_string" | "regex";
+
 export interface TagRule {
   substring: string;
   tag: string;
+  matchType: MatchType;
+  toggleTransaction: boolean;
   replaceDescription: string;
 }
 
@@ -207,12 +204,29 @@ export async function applyTagRulesToTransactions(
   for (const transaction of transactions) {
     try {
       let description = transaction.description || "";
+      let type = transaction.type;
       const currentTags = await getTagsForTransaction(transaction.id);
       const currentTagIds = new Set(currentTags.map((t) => t.id));
       let hasChanges = false;
 
       for (const rule of activeRules) {
-        if (description.toLowerCase().includes(rule.substring.toLowerCase())) {
+        let matched = false;
+
+        try {
+          if (rule.matchType === "substring") {
+            matched = description.toLowerCase().includes(rule.substring.toLowerCase());
+          } else if (rule.matchType === "full_string") {
+            matched = description.toLowerCase() === rule.substring.toLowerCase();
+          } else if (rule.matchType === "regex") {
+            const regex = new RegExp(rule.substring, "i");
+            matched = regex.test(description);
+          }
+        } catch (err) {
+          console.error(`Invalid regex in rule: ${rule.substring}`, err);
+          matched = false;
+        }
+
+        if (matched) {
           // Get or create tag ID
           const normalizedName = rule.tag.trim().toLowerCase();
           let tagId = tagMap.get(normalizedName);
@@ -230,6 +244,12 @@ export async function applyTagRulesToTransactions(
             hasChanges = true;
           }
 
+          // Toggle transaction type if specified
+          if (rule.toggleTransaction) {
+            type = type === "deposit" ? "withdrawal" : "deposit";
+            hasChanges = true;
+          }
+
           // Replace description if specified
           if (rule.replaceDescription.trim()) {
             description = rule.replaceDescription;
@@ -242,9 +262,19 @@ export async function applyTagRulesToTransactions(
         // Update tags
         await setTagsForTransaction(transaction.id, Array.from(currentTagIds));
 
-        // Update description if changed
+        // Update transaction
+        const updates: {
+          description?: string;
+          type?: TransactionType;
+        } = {};
         if (description !== (transaction.description || "")) {
-          await updateTransaction(transaction.id, { description });
+          updates.description = description;
+        }
+        if (type !== transaction.type) {
+          updates.type = type;
+        }
+        if (Object.keys(updates).length > 0) {
+          await updateTransaction(transaction.id, updates);
         }
 
         updated++;
@@ -296,7 +326,7 @@ export async function aggregateTransactionsByTag(
       COUNT(t.id) as transaction_count,
       SUM(t.amount) as total_amount,
       SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END) as deposit_amount,
-      SUM(CASE WHEN t.type IN ('withdrawal', 'payment', 'fee') THEN t.amount ELSE 0 END) as withdrawal_amount
+      SUM(CASE WHEN t.type = 'withdrawal' THEN t.amount ELSE 0 END) as withdrawal_amount
     FROM transactions t
     LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
     LEFT JOIN tags tg ON tt.tag_id = tg.id
@@ -366,21 +396,39 @@ export async function aggregateTransactionsByPeriod(
   startDate?: string,
   endDate?: string,
 ): Promise<TransactionAggregationByPeriod[]> {
+  const db = Database.getInstance();
   let dateFormat: string;
 
-  switch (granularity) {
-    case "day":
-      dateFormat = "DATE_FORMAT(transaction_date, '%Y-%m-%d')";
-      break;
-    case "week":
-      dateFormat = "DATE_FORMAT(transaction_date, '%Y-%u')";
-      break;
-    case "month":
-      dateFormat = "DATE_FORMAT(transaction_date, '%Y-%m')";
-      break;
-    case "year":
-      dateFormat = "DATE_FORMAT(transaction_date, '%Y')";
-      break;
+  if (db.dialect === "sqlite") {
+    switch (granularity) {
+      case "day":
+        dateFormat = "strftime('%Y-%m-%d', transaction_date)";
+        break;
+      case "week":
+        dateFormat = "strftime('%Y-%W', transaction_date)";
+        break;
+      case "month":
+        dateFormat = "strftime('%Y-%m', transaction_date)";
+        break;
+      case "year":
+        dateFormat = "strftime('%Y', transaction_date)";
+        break;
+    }
+  } else {
+    switch (granularity) {
+      case "day":
+        dateFormat = "DATE_FORMAT(transaction_date, '%Y-%m-%d')";
+        break;
+      case "week":
+        dateFormat = "DATE_FORMAT(transaction_date, '%Y-%u')";
+        break;
+      case "month":
+        dateFormat = "DATE_FORMAT(transaction_date, '%Y-%m')";
+        break;
+      case "year":
+        dateFormat = "DATE_FORMAT(transaction_date, '%Y')";
+        break;
+    }
   }
 
   let whereClause = "WHERE profile_id = ?";
@@ -401,7 +449,7 @@ export async function aggregateTransactionsByPeriod(
       COUNT(*) as transaction_count,
       SUM(amount) as total_amount,
       SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END) as deposit_amount,
-      SUM(CASE WHEN type IN ('withdrawal', 'payment', 'fee') THEN amount ELSE 0 END) as withdrawal_amount,
+      SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END) as withdrawal_amount,
       SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END) as net_amount
     FROM transactions
     ${whereClause}

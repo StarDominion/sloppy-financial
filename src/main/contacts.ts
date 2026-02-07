@@ -1,5 +1,4 @@
-import { getPool } from "./db";
-import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { Database } from "./database/Database";
 
 export type Contact = {
   id: number;
@@ -12,21 +11,20 @@ export type Contact = {
 };
 
 export async function listContacts(profileId: number): Promise<Contact[]> {
-  const pool = getPool();
-  const [rows] = await pool.query<RowDataPacket[]>(
+  const db = Database.getInstance();
+  return db.query<Contact>(
     "SELECT * FROM contacts WHERE profile_id = ? ORDER BY name ASC",
     [profileId],
   );
-  return rows as Contact[];
 }
 
 export async function getContact(id: number): Promise<Contact | null> {
-  const pool = getPool();
-  const [rows] = await pool.query<RowDataPacket[]>(
+  const db = Database.getInstance();
+  const rows = await db.query<Contact>(
     "SELECT * FROM contacts WHERE id = ?",
     [id],
   );
-  return rows.length > 0 ? (rows[0] as Contact) : null;
+  return rows.length > 0 ? rows[0] : null;
 }
 
 export async function createContact(data: {
@@ -37,8 +35,8 @@ export async function createContact(data: {
   notes?: string | null;
   profileId: number;
 }): Promise<number> {
-  const pool = getPool();
-  const [result] = await pool.query<ResultSetHeader>(
+  const db = Database.getInstance();
+  const result = await db.execute(
     "INSERT INTO contacts (name, email, phone, address, notes, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
     [
       data.name,
@@ -62,7 +60,7 @@ export async function updateContact(
     notes?: string | null;
   },
 ): Promise<void> {
-  const pool = getPool();
+  const db = Database.getInstance();
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -90,13 +88,13 @@ export async function updateContact(
   if (fields.length === 0) return;
 
   values.push(id);
-  await pool.query(
+  await db.execute(
     `UPDATE contacts SET ${fields.join(", ")} WHERE id = ?`,
     values,
   );
 }
 
 export async function deleteContact(id: number): Promise<void> {
-  const pool = getPool();
-  await pool.query("DELETE FROM contacts WHERE id = ?", [id]);
+  const db = Database.getInstance();
+  await db.execute("DELETE FROM contacts WHERE id = ?", [id]);
 }

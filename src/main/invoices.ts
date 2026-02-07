@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { Database } from "./database/Database";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
 
@@ -142,8 +143,10 @@ export async function updateInvoiceDocument(
 }
 
 export async function markInvoicePaid(id: number): Promise<void> {
+  const db = Database.getInstance();
+  const dateFn = db.dialect === "sqlite" ? "date('now')" : "CURDATE()";
   await query(
-    `UPDATE invoices SET status = 'paid', paid_date = CURDATE() WHERE id = ?`,
+    `UPDATE invoices SET status = 'paid', paid_date = ${dateFn} WHERE id = ?`,
     [id],
   );
 }

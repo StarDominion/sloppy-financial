@@ -1,4 +1,4 @@
-import { getSettings } from "./settings";
+import { getWorkspaceConfig } from "./workspace";
 import { createTransaction, TransactionType } from "./transactions";
 import { listTags, createTag, setTagsForTransaction } from "./tags";
 
@@ -88,7 +88,7 @@ function parseCsvLine(line: string): string[] {
  */
 export function buildMappingPrompt(headers: string[], sampleRows: CsvRow[]): string {
   const targetColumns = [
-    { name: "type", description: "Transaction type: deposit, withdrawal, transfer, payment, refund, fee, interest, or other" },
+    { name: "type", description: "Transaction type: deposit or withdrawal" },
     { name: "amount", description: "The monetary amount of the transaction (numeric)" },
     { name: "description", description: "Description or memo of the transaction" },
     { name: "transaction_date", description: "The date the transaction occurred" },
@@ -122,8 +122,9 @@ Do not include any explanation, just the JSON array.`;
  * Send an arbitrary prompt to Ollama and return the raw response text
  */
 export async function runOllamaPrompt(prompt: string): Promise<string> {
-  const settings = await getSettings();
-  const { host, model } = settings.ollama;
+  const wsConfig = getWorkspaceConfig();
+  const host = wsConfig?.ollama?.host || "http://localhost:11434";
+  const model = wsConfig?.ollama?.model || "llama3.2";
 
   console.log("[Ollama:runPrompt] Prompt:", prompt);
 
@@ -192,9 +193,7 @@ export function buildClassifyPrompt(
   transactions: Array<{ _rowIndex: number; description: string; amount: number; type: string }>,
   existingTags: { id: number; name: string }[],
 ): string {
-  const validTypes = [
-    "deposit", "withdrawal", "transfer", "payment", "refund", "fee", "interest", "other",
-  ];
+  const validTypes = ["deposit", "withdrawal"];
   const tagNames = existingTags.map((t) => t.name);
 
   const transactionDescriptions = transactions.map((t) => ({
@@ -212,9 +211,8 @@ Transactions to classify:
 ${JSON.stringify(transactionDescriptions, null, 2)}
 
 Rules:
-- Negative amounts or debits are typically "withdrawal" or "payment"
+- Negative amounts or debits are typically "withdrawal"
 - Positive amounts or credits are typically "deposit"
-- Look for keywords: transfer, fee, interest, refund in descriptions
 - Suggest 1-3 relevant tags per transaction
 
 Return ONLY a valid JSON array where each item has: {"index": <number>, "type": "<transaction type>", "suggestedTags": ["tag1", "tag2"]}
@@ -235,9 +233,7 @@ export async function classifyTransactions(
     suggestedTags: string[];
   }>
 > {
-  const validTypes = [
-    "deposit", "withdrawal", "transfer", "payment", "refund", "fee", "interest", "other",
-  ];
+  const validTypes = ["deposit", "withdrawal"];
 
   // Process in batches of 20
   const batchSize = 20;
@@ -395,18 +391,17 @@ export function applyMapping(
       transactionDate = normalizeDate(row[dateCol]);
     }
 
-    let type: TransactionType = "other";
+    let type: TransactionType = "withdrawal";
     if (typeCol && row[typeCol]) {
       const rawType = row[typeCol].toLowerCase().trim();
-      const validTypes: TransactionType[] = [
-        "deposit", "withdrawal", "transfer", "payment", "refund", "fee", "interest", "other",
-      ];
+      const validTypes: TransactionType[] = ["deposit", "withdrawal"];
       type = validTypes.includes(rawType as TransactionType)
         ? (rawType as TransactionType)
         : amount >= 0
           ? "deposit"
           : "withdrawal";
     } else {
+      // Auto-detect based on sign: positive = deposit, negative = withdrawal
       type = amount >= 0 ? "deposit" : "withdrawal";
     }
 

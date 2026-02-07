@@ -894,30 +894,47 @@ declare global {
           contentType: string;
         }>;
       };
-      settings: {
-        get: () => Promise<{
-          mysql: {
-            host: string;
-            port: number;
-            user: string;
-            password: string;
-            database: string;
+      workspace: {
+        listRecent: () => Promise<
+          Array<{
+            path: string;
+            lastOpened: string;
+          }>
+        >;
+        open: (folderPath: string) => Promise<{ success: boolean }>;
+        create: (folderPath: string, config?: any) => Promise<{ success: boolean }>;
+        showOpenDialog: () => Promise<string | null>;
+        showCreateDialog: () => Promise<string | null>;
+        getConfig: () => Promise<{
+          database: {
+            provider: "sqlite" | "mysql";
+            mysql?: {
+              host: string;
+              port: number;
+              user: string;
+              password: string;
+              database: string;
+            };
           };
-          minio: {
-            endPoint: string;
-            port: number;
-            useSSL: boolean;
-            accessKey: string;
-            secretKey: string;
-            bucket: string;
+          storage: {
+            provider: "local" | "minio";
+            minio?: {
+              endPoint: string;
+              port: number;
+              useSSL: boolean;
+              accessKey: string;
+              secretKey: string;
+              bucket: string;
+            };
           };
-          ollama: {
+          ollama?: {
             host: string;
             model: string;
           };
-        }>;
-        update: (settings: any) => Promise<{ success: boolean }>;
-        reset: () => Promise<{ success: boolean }>;
+        } | null>;
+        updateConfig: (updates: any) => Promise<{ success: boolean }>;
+        removeRecent: (folderPath: string) => Promise<{ success: boolean }>;
+        getCurrent: () => Promise<string | null>;
         testMySQL: (config: {
           host: string;
           port: number;
@@ -932,6 +949,9 @@ declare global {
           accessKey: string;
           secretKey: string;
           bucket: string;
+        }) => Promise<{ success: boolean; message: string }>;
+        testSqlite: (config: {
+          path: string;
         }) => Promise<{ success: boolean; message: string }>;
       };
       window: {

@@ -1,0 +1,49 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Java
+*.class
+*.jar
+
+# .NET
+bin/
+obj/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Build outputs
+dist/
+build/
+out/
+
+# App config (contains credentials)
+config/
+
+# Logs
+*.log
+
+# Coverage
+coverage/

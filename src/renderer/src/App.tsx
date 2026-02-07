@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { ProfileSelector } from "./components/ProfileSelector";
 import { Workspace } from "./components/Workspace";
 import { NotesEditor } from "./components/NotesEditor";
 
 function App(): React.JSX.Element {
-  const [view, setView] = useState<"profile-select" | "workspace" | "notes">(
-    "profile-select",
+  const [view, setView] = useState<"workspace-select" | "profile-select" | "workspace" | "notes">(
+    "workspace-select",
   );
   const [noteParams, setNoteParams] = useState<{ id?: number }>({});
   const [profileId, setProfileId] = useState<number | null>(null);
@@ -22,7 +23,7 @@ function App(): React.JSX.Element {
         const id = params.get("id");
         setNoteParams({ id: id ? parseInt(id) : undefined });
       } else {
-        setView("profile-select");
+        setView("workspace-select");
       }
     };
 
@@ -97,7 +98,7 @@ function App(): React.JSX.Element {
     );
   }
 
-  // Profile selector (Landing Zone)
+  // Shared shell for workspace-select and profile-select views
   return (
     <div
       style={{
@@ -124,12 +125,19 @@ function App(): React.JSX.Element {
           </button>
         </div>
       </div>
-      <ProfileSelector
-        onSelectProfile={(id) => {
-          setProfileId(id);
-          setView("workspace");
-        }}
-      />
+      {view === "workspace-select" ? (
+        <WorkspaceSelector
+          onWorkspaceReady={() => setView("profile-select")}
+        />
+      ) : (
+        <ProfileSelector
+          onSelectProfile={(id) => {
+            setProfileId(id);
+            setView("workspace");
+          }}
+          onBackToWorkspace={() => setView("workspace-select")}
+        />
+      )}
     </div>
   );
 }

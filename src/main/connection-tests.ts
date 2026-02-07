@@ -1,6 +1,6 @@
 import mysql from "mysql2/promise";
+import BetterSqlite3 from "better-sqlite3";
 import { Client } from "minio";
-import { AppSettings } from "./settings";
 
 export interface ConnectionTestResult {
   success: boolean;
@@ -8,7 +8,7 @@ export interface ConnectionTestResult {
 }
 
 export async function testMySQLConnection(
-  config: AppSettings["mysql"],
+  config: { host: string; port: number; user: string; password: string; database: string },
 ): Promise<ConnectionTestResult> {
   let connection;
   try {
@@ -41,7 +41,7 @@ export async function testMySQLConnection(
 }
 
 export async function testMinIOConnection(
-  config: AppSettings["minio"],
+  config: { endPoint: string; port: number; useSSL: boolean; accessKey: string; secretKey: string; bucket: string },
 ): Promise<ConnectionTestResult> {
   try {
     const client = new Client({
@@ -75,5 +75,32 @@ export async function testMinIOConnection(
       message:
         error instanceof Error ? error.message : "Unknown error occurred",
     };
+  }
+}
+
+export async function testSqliteConnection(
+  config: { path: string },
+): Promise<ConnectionTestResult> {
+  let db;
+  try {
+    db = new BetterSqlite3(config.path);
+    // Verify we can read/write
+    db.pragma("journal_mode = WAL");
+    db.exec("SELECT 1");
+
+    return {
+      success: true,
+      message: `Connected to SQLite database at ${config.path}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  } finally {
+    if (db) {
+      db.close();
+    }
   }
 }

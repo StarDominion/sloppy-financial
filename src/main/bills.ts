@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { Database } from "./database/Database";
 import schedule from "node-schedule";
 import { createReminder } from "./reminders";
 import { getTagsForAutomaticBill, setTagsForBillRecord } from "./tags";
@@ -58,11 +59,15 @@ export async function checkMissingDocuments(): Promise<void> {
   // "create a reminder for bills lacking a file" -> implies the Reminders system.
 
   // Let's query paid bills without docs.
+  const db = Database.getInstance();
+  const dateExpr = db.dialect === "sqlite"
+    ? "datetime('now', '-30 days')"
+    : "DATE_SUB(NOW(), INTERVAL 30 DAY)";
   const records = await query<BillRecord[]>(`
-        SELECT * FROM bill_records 
-        WHERE status = 'paid' 
+        SELECT * FROM bill_records
+        WHERE status = 'paid'
         AND (document_path IS NULL OR document_path = '')
-        AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+        AND created_at > ${dateExpr}
     `);
 
   for (const r of records) {
@@ -267,15 +272,20 @@ export async function updateBillRecord(
 }
 
 export async function markBillPaid(id: number): Promise<void> {
+  const db = Database.getInstance();
+  const nowFn = db.dialect === "sqlite" ? "datetime('now')" : "NOW()";
   await query(
-    'UPDATE bill_records SET status = "paid", paid_date = NOW() WHERE id = ?',
+    `UPDATE bill_records SET status = 'paid', paid_date = ${nowFn} WHERE id = ?`,
     [id],
   );
 }
 
 export async function checkAndGenerateBills() {
   console.log("Checking for automatic bills...");
-  const autoBills = await listAutomaticBills();
+  // Query all automatic bills across all profiles for the scheduler
+  const autoBills = await query<AutomaticBill[]>(
+    "SELECT * FROM automatic_bills ORDER BY created_at DESC"
+  );
   const now = new Date();
 
   for (const bill of autoBills) {

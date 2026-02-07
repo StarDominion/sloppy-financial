@@ -218,14 +218,21 @@ const api = {
     download: (objectName: string) =>
       ipcRenderer.invoke("minio:download", objectName),
   },
-  settings: {
-    get: () => ipcRenderer.invoke("settings:get"),
-    update: (settings: any) => ipcRenderer.invoke("settings:update", settings),
-    reset: () => ipcRenderer.invoke("settings:reset"),
-    testMySQL: (config: any) =>
-      ipcRenderer.invoke("settings:testMySQL", config),
-    testMinIO: (config: any) =>
-      ipcRenderer.invoke("settings:testMinIO", config),
+  workspace: {
+    listRecent: () => ipcRenderer.invoke("workspace:listRecent"),
+    open: (folderPath: string) => ipcRenderer.invoke("workspace:open", folderPath),
+    create: (folderPath: string, config?: any) =>
+      ipcRenderer.invoke("workspace:create", folderPath, config),
+    showOpenDialog: () => ipcRenderer.invoke("workspace:showOpenDialog"),
+    showCreateDialog: () => ipcRenderer.invoke("workspace:showCreateDialog"),
+    getConfig: () => ipcRenderer.invoke("workspace:getConfig"),
+    updateConfig: (updates: any) => ipcRenderer.invoke("workspace:updateConfig", updates),
+    removeRecent: (folderPath: string) =>
+      ipcRenderer.invoke("workspace:removeRecent", folderPath),
+    getCurrent: () => ipcRenderer.invoke("workspace:getCurrent"),
+    testMySQL: (config: any) => ipcRenderer.invoke("settings:testMySQL", config),
+    testMinIO: (config: any) => ipcRenderer.invoke("settings:testMinIO", config),
+    testSqlite: (config: any) => ipcRenderer.invoke("settings:testSqlite", config),
   },
   window: {
     openNotes: (noteId?: number) =>

@@ -1,25 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 
-type TransactionType =
-  | "deposit"
-  | "withdrawal"
-  | "transfer"
-  | "payment"
-  | "refund"
-  | "fee"
-  | "interest"
-  | "other";
+type TransactionType = "deposit" | "withdrawal";
 
-const TYPE_OPTIONS: TransactionType[] = [
-  "deposit",
-  "withdrawal",
-  "transfer",
-  "payment",
-  "refund",
-  "fee",
-  "interest",
-  "other",
-];
+const TYPE_OPTIONS: TransactionType[] = ["deposit", "withdrawal"];
 
 interface ColumnMapping {
   csvColumn: string;
@@ -36,11 +19,16 @@ interface ImportRow {
   suggestedTags: string[];
   excluded: boolean;
   duplicate: boolean;
+  rulesApplied: boolean;
 }
+
+type MatchType = "substring" | "full_string" | "regex";
 
 interface TagRule {
   substring: string;
   tag: string;
+  matchType: MatchType;
+  toggleTransaction: boolean;
   replaceDescription: string;
 }
 
@@ -77,7 +65,17 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
   // Tag rules state
   const [tagRules, setTagRules] = useState<TagRule[]>([]);
   const [tagRulesOpen, setTagRulesOpen] = useState(false);
+  const [tagRulesSearch, setTagRulesSearch] = useState("");
   const [sortByUntagged, setSortByUntagged] = useState(false);
+
+  // Review tab state
+  const [reviewTab, setReviewTab] = useState<"transactions" | "rules" | "classify">("transactions");
+
+  // Ref for tag rules scrolling
+  const tagRulesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Inverse option for credit cards (swap deposit/withdrawal)
+  const [inverseTypes, setInverseTypes] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,6 +97,8 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
           savedRules.map((r) => ({
             substring: r.substring,
             tag: r.tag,
+            matchType: r.match_type || "substring",
+            toggleTransaction: r.toggle_transaction || false,
             replaceDescription: r.replace_description || "",
           })),
         );
@@ -161,75 +161,98 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
     );
   };
 
-  const handleApplyMapping = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg("");
-    setStatusMsg("Applying column mapping...");
+  const handleApplyMapping = useCallback(
+    async (skipClassification: boolean = false) => {
+      setLoading(true);
+      setErrorMsg("");
+      setStatusMsg("Applying column mapping...");
 
-    try {
-      const mapped = await window.api.csvImport.applyMapping(csvRows, mapping);
-
-      // Classify with Ollama
-      setStatusMsg("Classifying transactions with AI...");
-      let tags: { id: number; name: string }[] = [];
       try {
-        tags = await window.api.tags.list(profileId);
-      } catch {
-        // no tags available
-      }
+        const mapped = await window.api.csvImport.applyMapping(csvRows, mapping);
 
-      const classifications = await window.api.csvImport.classify(mapped, tags);
+        let classifications: Array<{
+          _rowIndex: number;
+          type: TransactionType;
+          suggestedTags: string[];
+        }> = [];
 
-      // Merge classifications into import rows
-      const rows: ImportRow[] = mapped.map((t) => {
-        const cls = classifications.find((c) => c._rowIndex === t._rowIndex);
-        return {
-          ...t,
-          type: cls?.type || t.type,
-          suggestedTags: cls?.suggestedTags || [],
-          excluded: false,
-          duplicate: false,
-        };
-      });
-
-      // Check for duplicates
-      setStatusMsg("Checking for duplicate transactions...");
-      try {
-        const duplicateKeys = await window.api.transactions.checkDuplicates(
-          profileId,
-          rows.map((r) => ({ transaction_date: r.transaction_date, amount: r.amount })),
-        );
-
-        // Mark duplicates and auto-exclude them
-        rows.forEach((row) => {
-          const key = `${row.transaction_date}:${row.amount}`;
-          if (duplicateKeys.has(key)) {
-            row.duplicate = true;
-            row.excluded = true; // Auto-exclude duplicates
+        if (!skipClassification) {
+          // Classify with Ollama
+          setStatusMsg("Classifying transactions with AI...");
+          let tags: { id: number; name: string }[] = [];
+          try {
+            tags = await window.api.tags.list(profileId);
+          } catch {
+            // no tags available
           }
+
+          classifications = await window.api.csvImport.classify(mapped, tags);
+
+          // Build default classify prompt for the editor
+          const defaultClassifyPrompt = await window.api.csvImport.buildClassifyPrompt(
+            mapped.map((t) => ({
+              _rowIndex: t._rowIndex,
+              description: t.description,
+              amount: t.amount,
+              type: t.type,
+            })),
+            tags,
+          );
+          setClassifyPrompt(defaultClassifyPrompt);
+          setClassifyPromptResponse("");
+        }
+
+        // Merge classifications into import rows
+        const rows: ImportRow[] = mapped.map((t) => {
+          const cls = classifications.find((c) => c._rowIndex === t._rowIndex);
+          let type = cls?.type || t.type;
+
+          // Apply inverse if enabled (swap deposit/withdrawal for credit cards)
+          if (inverseTypes) {
+            type = type === "deposit" ? "withdrawal" : "deposit";
+          }
+
+          return {
+            ...t,
+            type,
+            suggestedTags: cls?.suggestedTags || [],
+            excluded: false,
+            duplicate: false,
+            rulesApplied: false,
+          };
         });
-      } catch (dupErr) {
-        console.warn("Failed to check duplicates:", dupErr);
+
+        // Check for duplicates
+        setStatusMsg("Checking for duplicate transactions...");
+        try {
+          const duplicateKeys = await window.api.transactions.checkDuplicates(
+            profileId,
+            rows.map((r) => ({ transaction_date: r.transaction_date, amount: r.amount })),
+          );
+
+          // Mark duplicates and auto-exclude them
+          rows.forEach((row) => {
+            const key = `${row.transaction_date}:${row.amount}`;
+            if (duplicateKeys.has(key)) {
+              row.duplicate = true;
+              row.excluded = true; // Auto-exclude duplicates
+            }
+          });
+        } catch (dupErr) {
+          console.warn("Failed to check duplicates:", dupErr);
+        }
+
+        setImportRows(rows);
+        setStep("review");
+        setStatusMsg("");
+      } catch (err) {
+        setErrorMsg(`Mapping failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      } finally {
+        setLoading(false);
       }
-
-      setImportRows(rows);
-
-      // Build default classify prompt for the editor
-      const defaultClassifyPrompt = await window.api.csvImport.buildClassifyPrompt(
-        mapped.map((t) => ({ _rowIndex: t._rowIndex, description: t.description, amount: t.amount, type: t.type })),
-        tags,
-      );
-      setClassifyPrompt(defaultClassifyPrompt);
-      setClassifyPromptResponse("");
-
-      setStep("review");
-      setStatusMsg("");
-    } catch (err) {
-      setErrorMsg(`Mapping failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [csvRows, mapping, profileId]);
+    },
+    [csvRows, mapping, profileId, inverseTypes],
+  );
 
   // ─── Step 3: Review & Edit ───────────────────────────────────────
 
@@ -450,7 +473,22 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
   // ─── Tag rules handlers ────────────────────────────────────────
 
   const addTagRule = () => {
-    setTagRules((prev) => [...prev, { substring: "", tag: "", replaceDescription: "" }]);
+    setTagRules((prev) => [
+      {
+        substring: "",
+        tag: "",
+        matchType: "substring",
+        toggleTransaction: false, // Keep for backwards compatibility with saved rules
+        replaceDescription: "",
+      },
+      ...prev,
+    ]);
+    // Scroll to top of tag rules container
+    setTimeout(() => {
+      if (tagRulesContainerRef.current) {
+        tagRulesContainerRef.current.scrollTop = 0;
+      }
+    }, 50);
   };
 
   const updateTagRule = (index: number, field: keyof TagRule, value: string) => {
@@ -474,6 +512,8 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
         activeRules.map((r) => ({
           substring: r.substring,
           tag: r.tag,
+          matchType: r.matchType,
+          toggleTransaction: r.toggleTransaction,
           replaceDescription: r.replaceDescription || undefined,
         })),
       );
@@ -482,13 +522,39 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
       setErrorMsg(`Failed to save tag rules: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
 
+    let checkedCount = 0;
+    let matchedCount = 0;
     setImportRows((prev) =>
       prev.map((row) => {
+        // Skip rows that already had rules applied
+        if (row.rulesApplied) {
+          return row;
+        }
+
         let description = row.description;
+        let type = row.type;
         const newTags = [...row.suggestedTags];
+        let anyRuleMatched = false;
 
         for (const rule of activeRules) {
-          if (description.toLowerCase().includes(rule.substring.toLowerCase())) {
+          let matched = false;
+
+          try {
+            if (rule.matchType === "substring") {
+              matched = description.toLowerCase().includes(rule.substring.toLowerCase());
+            } else if (rule.matchType === "full_string") {
+              matched = description.toLowerCase() === rule.substring.toLowerCase();
+            } else if (rule.matchType === "regex") {
+              const regex = new RegExp(rule.substring, "i");
+              matched = regex.test(description);
+            }
+          } catch (err) {
+            console.error(`Invalid regex in rule: ${rule.substring}`, err);
+            matched = false;
+          }
+
+          if (matched) {
+            anyRuleMatched = true;
             if (!newTags.includes(rule.tag)) {
               newTags.push(rule.tag);
             }
@@ -498,10 +564,12 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
           }
         }
 
-        return { ...row, description, suggestedTags: newTags };
+        checkedCount++;
+        if (anyRuleMatched) matchedCount++;
+        return { ...row, description, type, suggestedTags: newTags, rulesApplied: anyRuleMatched };
       }),
     );
-    setStatusMsg(`Applied ${activeRules.length} tag rule(s) to all rows.`);
+    setStatusMsg(`Applied ${activeRules.length} tag rule(s) to ${checkedCount} unchecked row(s). ${matchedCount} row(s) matched.`);
   }, [tagRules, profileId]);
 
   // ─── DB columns for mapping dropdown ─────────────────────────────
@@ -532,6 +600,68 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
   const totalPages = Math.ceil(sortedRows.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const displayRows = sortedRows.slice(startIndex, startIndex + itemsPerPage);
+
+  // Filter tag rules by search query
+  const filteredTagRules = tagRules.filter((rule) => {
+    if (!tagRulesSearch.trim()) return true;
+    const search = tagRulesSearch.toLowerCase();
+    return (
+      rule.substring.toLowerCase().includes(search) ||
+      rule.replaceDescription.toLowerCase().includes(search)
+    );
+  });
+
+  // Calculate match count for each rule
+  const getRuleMatchCount = (rule: TagRule): number => {
+    if (!rule.substring.trim()) return 0;
+
+    return importRows.filter((row) => {
+      const description = row.description;
+      try {
+        if (rule.matchType === "substring") {
+          return description.toLowerCase().includes(rule.substring.toLowerCase());
+        } else if (rule.matchType === "full_string") {
+          return description.toLowerCase() === rule.substring.toLowerCase();
+        } else if (rule.matchType === "regex") {
+          const regex = new RegExp(rule.substring, "i");
+          return regex.test(description);
+        }
+      } catch (err) {
+        return false;
+      }
+      return false;
+    }).length;
+  };
+
+  // Calculate total affected records if rules were applied
+  const getAffectedRecordsCount = (): number => {
+    const activeRules = tagRules.filter((r) => r.substring.trim() && r.tag.trim());
+    if (activeRules.length === 0) return 0;
+
+    return importRows.filter((row) => {
+      if (row.rulesApplied) return false; // Skip already checked rows
+
+      const description = row.description;
+      return activeRules.some((rule) => {
+        try {
+          if (rule.matchType === "substring") {
+            return description.toLowerCase().includes(rule.substring.toLowerCase());
+          } else if (rule.matchType === "full_string") {
+            return description.toLowerCase() === rule.substring.toLowerCase();
+          } else if (rule.matchType === "regex") {
+            const regex = new RegExp(rule.substring, "i");
+            return regex.test(description);
+          }
+        } catch (err) {
+          return false;
+        }
+        return false;
+      });
+    }).length;
+  };
+
+  const activeRulesCount = tagRules.filter((r) => r.substring.trim() && r.tag.trim()).length;
+  const affectedRecordsCount = getAffectedRecordsCount();
 
   return (
     <div className="csv-import">
@@ -685,13 +815,37 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
             )}
           </div>
 
+          <div className="csv-import__inverse-option">
+            <label>
+              <input
+                type="checkbox"
+                checked={inverseTypes}
+                onChange={(e) => setInverseTypes(e.target.checked)}
+              />
+              <span>
+                Inverse deposit/withdrawal
+                <span style={{ display: "block", fontSize: "12px", color: "#888", fontWeight: 400, marginTop: "2px" }}>
+                  Enable for credit card statements where charges appear as positive
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="csv-import__actions">
             <button className="csv-import__btn csv-import__btn--secondary" onClick={handleReset}>
               ← Back
             </button>
             <button
+              className="csv-import__btn csv-import__btn--secondary"
+              onClick={() => handleApplyMapping(true)}
+              disabled={loading || !mapping.some((m) => m.dbColumn !== "ignore")}
+              title="Skip AI classification and use column mapping only"
+            >
+              Skip Classification →
+            </button>
+            <button
               className="csv-import__btn csv-import__btn--primary"
-              onClick={handleApplyMapping}
+              onClick={() => handleApplyMapping(false)}
               disabled={loading || !mapping.some((m) => m.dbColumn !== "ignore")}
             >
               {loading ? "Processing..." : "Apply Mapping & Classify →"}
@@ -718,26 +872,28 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
                   {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""}
                 </span>
               )}
-              <button
-                className={`csv-import__btn-sort ${sortByUntagged ? "csv-import__btn-sort--active" : ""}`}
-                onClick={() => setSortByUntagged((v) => !v)}
-                title="Sort untagged rows to top"
-              >
-                {sortByUntagged ? "Sorted: untagged first" : "Sort by untagged"}
-              </button>
-              {duplicateCount > 0 && (
-                <button
-                  className="csv-import__btn csv-import__btn--secondary"
-                  onClick={toggleExcludeDuplicates}
-                  title="Toggle exclude all duplicates"
-                >
-                  {importRows.filter((r) => r.duplicate).every((r) => r.excluded)
-                    ? "Include Duplicates"
-                    : "Exclude Duplicates"}
-                </button>
+              {activeRulesCount > 0 && (
+                <span className="csv-import__rules-info" title={`${activeRulesCount} active rule${activeRulesCount !== 1 ? 's' : ''} would affect ${affectedRecordsCount} unchecked transaction${affectedRecordsCount !== 1 ? 's' : ''}`}>
+                  {activeRulesCount} rule{activeRulesCount !== 1 ? "s" : ""} → {affectedRecordsCount} match{affectedRecordsCount !== 1 ? "es" : ""}
+                </span>
               )}
             </div>
             <div className="csv-import__review-actions">
+              <button
+                className="csv-import__btn csv-import__btn--secondary"
+                onClick={addTagRule}
+                title="Add a new tag rule"
+              >
+                + Add Rule
+              </button>
+              <button
+                className="csv-import__btn csv-import__btn--secondary"
+                onClick={() => applyTagRules()}
+                disabled={activeRulesCount === 0}
+                title={activeRulesCount > 0 ? `Apply ${activeRulesCount} rule${activeRulesCount !== 1 ? 's' : ''} to ${affectedRecordsCount} transaction${affectedRecordsCount !== 1 ? 's' : ''}` : "No active rules to apply"}
+              >
+                Apply Rules
+              </button>
               <button className="csv-import__btn csv-import__btn--secondary" onClick={handleReset}>
                 ← Start Over
               </button>
@@ -754,124 +910,53 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
             </div>
           </div>
 
-          <div className="csv-import__prompt-panel">
+          {/* Tab Navigation */}
+          <div className="csv-import__tabs">
             <button
-              className="csv-import__prompt-toggle"
-              onClick={() => setClassifyPromptOpen(!classifyPromptOpen)}
+              className={`csv-import__tab ${reviewTab === "transactions" ? "csv-import__tab--active" : ""}`}
+              onClick={() => setReviewTab("transactions")}
             >
-              {classifyPromptOpen ? "Hide" : "Show"} Classification Prompt
-              <span className="csv-import__prompt-toggle-icon">{classifyPromptOpen ? "\u25B2" : "\u25BC"}</span>
+              Transactions ({importRows.length})
             </button>
-            {classifyPromptOpen && (
-              <div className="csv-import__prompt-editor">
-                <label className="csv-import__prompt-label">Prompt sent to Ollama for transaction classification:</label>
-                <textarea
-                  className="csv-import__prompt-textarea"
-                  value={classifyPrompt}
-                  onChange={(e) => setClassifyPrompt(e.target.value)}
-                  rows={12}
-                />
-                <div className="csv-import__prompt-actions">
-                  <button
-                    className="csv-import__btn csv-import__btn--secondary"
-                    onClick={async () => {
-                      let tags: { id: number; name: string }[] = [];
-                      try { tags = await window.api.tags.list(profileId); } catch { /* no tags */ }
-                      const p = await window.api.csvImport.buildClassifyPrompt(
-                        importRows.map((r) => ({ _rowIndex: r._rowIndex, description: r.description, amount: r.amount, type: r.type })),
-                        tags,
-                      );
-                      setClassifyPrompt(p);
-                    }}
-                  >
-                    Reset to Default
-                  </button>
-                  <button
-                    className="csv-import__btn csv-import__btn--primary"
-                    onClick={handleRunClassifyPrompt}
-                    disabled={classifyPromptLoading || !classifyPrompt.trim()}
-                  >
-                    {classifyPromptLoading ? "Running..." : "Run Prompt"}
-                  </button>
-                </div>
-                {classifyPromptResponse && (
-                  <div className="csv-import__prompt-response">
-                    <label className="csv-import__prompt-label">Ollama Response:</label>
-                    <pre className="csv-import__prompt-response-text">{classifyPromptResponse}</pre>
-                    <button
-                      className="csv-import__btn csv-import__btn--primary"
-                      onClick={handleApplyClassifyResponse}
-                    >
-                      Apply Response to Classifications
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="csv-import__tag-rules-panel">
             <button
-              className="csv-import__prompt-toggle"
-              onClick={() => setTagRulesOpen(!tagRulesOpen)}
+              className={`csv-import__tab ${reviewTab === "rules" ? "csv-import__tab--active" : ""}`}
+              onClick={() => setReviewTab("rules")}
             >
               Tag Rules ({tagRules.length})
-              <span className="csv-import__prompt-toggle-icon">{tagRulesOpen ? "\u25B2" : "\u25BC"}</span>
             </button>
-            {tagRulesOpen && (
-              <div className="csv-import__tag-rules-editor">
-                <p className="csv-import__tag-rules-hint">
-                  Match substrings in descriptions to auto-assign tags and optionally replace the description.
-                </p>
-                {tagRules.map((rule, i) => (
-                  <div key={i} className="csv-import__tag-rule-row">
-                    <input
-                      type="text"
-                      className="csv-import__input csv-import__tag-rule-input"
-                      placeholder="Substring to match..."
-                      value={rule.substring}
-                      onChange={(e) => updateTagRule(i, "substring", e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      className="csv-import__input csv-import__tag-rule-input csv-import__tag-rule-input--tag"
-                      placeholder="Tag name"
-                      value={rule.tag}
-                      onChange={(e) => updateTagRule(i, "tag", e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      className="csv-import__input csv-import__tag-rule-input csv-import__tag-rule-input--desc"
-                      placeholder="Replace description with... (optional)"
-                      value={rule.replaceDescription}
-                      onChange={(e) => updateTagRule(i, "replaceDescription", e.target.value)}
-                    />
-                    <button
-                      className="csv-import__btn-rule-remove"
-                      onClick={() => removeTagRule(i)}
-                      title="Remove rule"
-                    >
-                      x
-                    </button>
-                  </div>
-                ))}
-                <div className="csv-import__tag-rules-actions">
-                  <button className="csv-import__btn csv-import__btn--secondary" onClick={addTagRule}>
-                    + Add Rule
-                  </button>
-                  <button
-                    className="csv-import__btn csv-import__btn--primary"
-                    onClick={() => applyTagRules()}
-                    disabled={tagRules.filter((r) => r.substring.trim() && r.tag.trim()).length === 0}
-                  >
-                    Apply Rules
-                  </button>
-                </div>
-              </div>
-            )}
+            <button
+              className={`csv-import__tab ${reviewTab === "classify" ? "csv-import__tab--active" : ""}`}
+              onClick={() => setReviewTab("classify")}
+            >
+              Classification Prompt
+            </button>
           </div>
 
-          <div className="csv-import__table-wrapper">
+          {/* Transactions Tab */}
+          {reviewTab === "transactions" && (
+            <>
+              <div className="csv-import__tab-toolbar">
+                <button
+                  className={`csv-import__btn-sort ${sortByUntagged ? "csv-import__btn-sort--active" : ""}`}
+                  onClick={() => setSortByUntagged((v) => !v)}
+                  title="Sort untagged rows to top"
+                >
+                  {sortByUntagged ? "Sorted: untagged first" : "Sort by untagged"}
+                </button>
+                {duplicateCount > 0 && (
+                  <button
+                    className="csv-import__btn csv-import__btn--secondary"
+                    onClick={toggleExcludeDuplicates}
+                    title="Toggle exclude all duplicates"
+                  >
+                    {importRows.filter((r) => r.duplicate).every((r) => r.excluded)
+                      ? "Include Duplicates"
+                      : "Exclude Duplicates"}
+                  </button>
+                )}
+              </div>
+
+              <div className="csv-import__table-wrapper">
             <table className="csv-import__table">
               <thead>
                 <tr>
@@ -884,6 +969,7 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
                     />
                   </th>
                   <th>#</th>
+                  <th>Rules</th>
                   <th>Date</th>
                   <th>Type</th>
                   <th>Amount</th>
@@ -911,6 +997,13 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
                       {row.duplicate && (
                         <span className="csv-import__duplicate-badge" title="Duplicate transaction (same date & amount)">
                           ⚠
+                        </span>
+                      )}
+                    </td>
+                    <td className="csv-import__td-rules">
+                      {row.rulesApplied && (
+                        <span className="csv-import__rules-badge" title="A tag rule matched this row">
+                          ✓
                         </span>
                       )}
                     </td>
@@ -1053,6 +1146,152 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
                     »»
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+            </>
+          )}
+
+          {/* Tag Rules Tab */}
+          {reviewTab === "rules" && (
+            <div className="csv-import__tab-content" ref={tagRulesContainerRef}>
+              <div className="csv-import__tag-rules-editor">
+                <p className="csv-import__tag-rules-hint">
+                  Match text in descriptions to auto-assign tags and optionally replace the description.
+                </p>
+                {tagRules.length > 3 && (
+                  <input
+                    type="text"
+                    className="csv-import__input csv-import__tag-rules-search"
+                    placeholder="Search rules by match text or replacement..."
+                    value={tagRulesSearch}
+                    onChange={(e) => setTagRulesSearch(e.target.value)}
+                  />
+                )}
+                <button
+                  className="csv-import__btn csv-import__btn--secondary csv-import__btn-add-rule-top"
+                  onClick={addTagRule}
+                  title="Add a new tag rule at the top"
+                >
+                  + Add Rule
+                </button>
+                {filteredTagRules.map((rule, i) => {
+                  const actualIndex = tagRules.indexOf(rule);
+                  const matchCount = getRuleMatchCount(rule);
+                  return (
+                    <div key={actualIndex} className="csv-import__tag-rule-row">
+                      <input
+                        type="text"
+                        className="csv-import__input csv-import__tag-rule-input"
+                        placeholder="Text to match..."
+                        value={rule.substring}
+                        onChange={(e) => updateTagRule(actualIndex, "substring", e.target.value)}
+                      />
+                      <select
+                        className="csv-import__select csv-import__tag-rule-select"
+                        value={rule.matchType}
+                        onChange={(e) => updateTagRule(actualIndex, "matchType", e.target.value as MatchType)}
+                      >
+                        <option value="substring">Substring</option>
+                        <option value="full_string">Full String</option>
+                        <option value="regex">Regex</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="csv-import__input csv-import__tag-rule-input csv-import__tag-rule-input--tag"
+                        placeholder="Tag name"
+                        value={rule.tag}
+                        onChange={(e) => updateTagRule(actualIndex, "tag", e.target.value)}
+                      />
+                      <span className={`csv-import__tag-rule-match-count ${matchCount === 0 ? 'csv-import__tag-rule-match-count--empty' : ''}`} title={`${matchCount} transaction${matchCount !== 1 ? 's' : ''} match this rule`}>
+                        {matchCount > 0 ? `${matchCount} match${matchCount !== 1 ? 'es' : ''}` : 'No matches'}
+                      </span>
+                      <input
+                        type="text"
+                        className="csv-import__input csv-import__tag-rule-input csv-import__tag-rule-input--desc"
+                        placeholder="Replace description with... (optional)"
+                        value={rule.replaceDescription}
+                        onChange={(e) => updateTagRule(actualIndex, "replaceDescription", e.target.value)}
+                      />
+                      <button
+                        className="csv-import__btn-rule-remove"
+                        onClick={() => removeTagRule(actualIndex)}
+                        title="Remove rule"
+                      >
+                        x
+                      </button>
+                    </div>
+                  );
+                })}
+                {filteredTagRules.length === 0 && tagRulesSearch.trim() && (
+                  <p className="csv-import__tag-rules-no-results">
+                    No rules match your search.
+                  </p>
+                )}
+                {tagRules.length === 0 && (
+                  <p className="csv-import__tag-rules-hint" style={{ textAlign: 'center', marginTop: '20px' }}>
+                    No rules defined yet. Use the "+ Add Rule" button above to create your first rule.
+                  </p>
+                )}
+                {tagRules.length > 0 && (
+                  <button
+                    className="csv-import__btn csv-import__btn--secondary csv-import__btn-add-rule-bottom"
+                    onClick={addTagRule}
+                    title="Add a new tag rule at the top"
+                  >
+                    + Add Rule
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Classification Prompt Tab */}
+          {reviewTab === "classify" && (
+            <div className="csv-import__tab-content">
+              <div className="csv-import__prompt-editor">
+                <label className="csv-import__prompt-label">Prompt sent to Ollama for transaction classification:</label>
+                <textarea
+                  className="csv-import__prompt-textarea"
+                  value={classifyPrompt}
+                  onChange={(e) => setClassifyPrompt(e.target.value)}
+                  rows={12}
+                />
+                <div className="csv-import__prompt-actions">
+                  <button
+                    className="csv-import__btn csv-import__btn--secondary"
+                    onClick={async () => {
+                      let tags: { id: number; name: string }[] = [];
+                      try { tags = await window.api.tags.list(profileId); } catch { /* no tags */ }
+                      const p = await window.api.csvImport.buildClassifyPrompt(
+                        importRows.map((r) => ({ _rowIndex: r._rowIndex, description: r.description, amount: r.amount, type: r.type })),
+                        tags,
+                      );
+                      setClassifyPrompt(p);
+                    }}
+                  >
+                    Reset to Default
+                  </button>
+                  <button
+                    className="csv-import__btn csv-import__btn--primary"
+                    onClick={handleRunClassifyPrompt}
+                    disabled={classifyPromptLoading || !classifyPrompt.trim()}
+                  >
+                    {classifyPromptLoading ? "Running..." : "Run Prompt"}
+                  </button>
+                </div>
+                {classifyPromptResponse && (
+                  <div className="csv-import__prompt-response">
+                    <label className="csv-import__prompt-label">Ollama Response:</label>
+                    <pre className="csv-import__prompt-response-text">{classifyPromptResponse}</pre>
+                    <button
+                      className="csv-import__btn csv-import__btn--primary"
+                      onClick={handleApplyClassifyResponse}
+                    >
+                      Apply Response to Classifications
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

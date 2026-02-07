@@ -70,6 +70,9 @@ export function TransactionsList({
   const [sortKey, setSortKey] = useState<string>("transaction_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [filterUntagged, setFilterUntagged] = useState(false);
+  const [minTagCount, setMinTagCount] = useState<number | null>(null);
+  const [amountFilterValue, setAmountFilterValue] = useState<number | null>(null);
+  const [amountFilterType, setAmountFilterType] = useState<"gt" | "lt" | "eq">("gt");
 
   // Tag rules state
   const [tagRules, setTagRules] = useState<Array<{substring: string; tag: string; replaceDescription: string }>>([]);
@@ -98,6 +101,9 @@ export function TransactionsList({
     filterType,
     selectedTagFilter,
     filterUntagged,
+    minTagCount,
+    amountFilterValue,
+    amountFilterType,
     searchTerm,
     selectedMonth,
     selectedYear,
@@ -207,6 +213,16 @@ export function TransactionsList({
     }
     if (filterUntagged) {
       if (t.tags && t.tags.length > 0) return false;
+    }
+    if (minTagCount !== null) {
+      const tagCount = t.tags?.length || 0;
+      if (tagCount < minTagCount) return false;
+    }
+    if (amountFilterValue !== null) {
+      const amount = Number(t.amount);
+      if (amountFilterType === "gt" && amount <= amountFilterValue) return false;
+      if (amountFilterType === "lt" && amount >= amountFilterValue) return false;
+      if (amountFilterType === "eq" && amount !== amountFilterValue) return false;
     }
     if (selectedMonth !== null || selectedYear !== null) {
       const d = new Date(t.transaction_date);
@@ -397,6 +413,108 @@ export function TransactionsList({
           />
           Untagged only
         </label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            background: "#1e1e1e",
+            border: "1px solid #444",
+            borderRadius: 4,
+          }}
+        >
+          <label
+            htmlFor="minTagCount"
+            style={{
+              color: minTagCount !== null ? "#fff" : "#999",
+              fontSize: 14,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Min tags:
+          </label>
+          <input
+            id="minTagCount"
+            type="number"
+            min="0"
+            placeholder="Any"
+            value={minTagCount ?? ""}
+            onChange={(e) =>
+              setMinTagCount(
+                e.target.value !== "" ? parseInt(e.target.value) : null,
+              )
+            }
+            style={{
+              width: 60,
+              padding: "4px 8px",
+              background: "#2a2a2a",
+              color: "#fff",
+              border: "1px solid #555",
+              borderRadius: 3,
+              fontSize: 14,
+            }}
+          />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            background: "#1e1e1e",
+            border: "1px solid #444",
+            borderRadius: 4,
+          }}
+        >
+          <label
+            htmlFor="amountFilter"
+            style={{
+              color: amountFilterValue !== null ? "#fff" : "#999",
+              fontSize: 14,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Amount:
+          </label>
+          <select
+            value={amountFilterType}
+            onChange={(e) => setAmountFilterType(e.target.value as "gt" | "lt" | "eq")}
+            style={{
+              padding: "4px 6px",
+              background: "#2a2a2a",
+              color: "#fff",
+              border: "1px solid #555",
+              borderRadius: 3,
+              fontSize: 14,
+            }}
+          >
+            <option value="gt">&gt;</option>
+            <option value="lt">&lt;</option>
+            <option value="eq">=</option>
+          </select>
+          <input
+            id="amountFilter"
+            type="number"
+            step="0.01"
+            placeholder="Any"
+            value={amountFilterValue ?? ""}
+            onChange={(e) =>
+              setAmountFilterValue(
+                e.target.value !== "" ? parseFloat(e.target.value) : null,
+              )
+            }
+            style={{
+              width: 80,
+              padding: "4px 8px",
+              background: "#2a2a2a",
+              color: "#fff",
+              border: "1px solid #555",
+              borderRadius: 3,
+              fontSize: 14,
+            }}
+          />
+        </div>
         <select
           value={selectedMonth ?? ""}
           onChange={(e) =>

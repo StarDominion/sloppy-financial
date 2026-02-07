@@ -5,12 +5,6 @@ import { onDataChange, emitDataChange } from "../dataEvents";
 const TYPE_OPTIONS = [
   { value: "deposit", label: "Deposit" },
   { value: "withdrawal", label: "Withdrawal" },
-  { value: "transfer", label: "Transfer" },
-  { value: "payment", label: "Payment" },
-  { value: "refund", label: "Refund" },
-  { value: "fee", label: "Fee" },
-  { value: "interest", label: "Interest" },
-  { value: "other", label: "Other" },
 ];
 
 type BillRecord = {

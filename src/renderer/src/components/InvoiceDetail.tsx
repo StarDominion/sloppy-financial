@@ -50,7 +50,7 @@ interface InvoiceDetailProps {
 
 export function InvoiceDetail({
   invoiceId,
-  profileId,
+  profileId: _profileId,
   onClose,
 }: InvoiceDetailProps): React.JSX.Element {
   const [invoice, setInvoice] = useState<Invoice | null>(null);

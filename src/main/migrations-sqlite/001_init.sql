@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS bill_records (
   document_storage_key TEXT NULL,
   document_md5_hash TEXT NULL,
   owed_by_contact_id INTEGER NULL,
+  owed_to_contact_id INTEGER NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
   FOREIGN KEY (automatic_bill_id) REFERENCES automatic_bills(id) ON DELETE SET NULL

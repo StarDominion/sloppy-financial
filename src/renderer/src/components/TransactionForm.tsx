@@ -26,7 +26,7 @@ export function TransactionForm({
   onCancel,
 }: TransactionFormProps): React.JSX.Element {
   const [billRecords, setBillRecords] = useState<BillRecord[]>([]);
-  const [type, setType] = useState("other");
+  const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [transactionDate, setTransactionDate] = useState(
@@ -149,7 +149,7 @@ export function TransactionForm({
           </label>
           <select
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => setType(e.target.value as "deposit" | "withdrawal")}
             style={inputStyle}
           >
             {TYPE_OPTIONS.map((opt) => (

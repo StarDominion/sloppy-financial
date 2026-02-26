@@ -1,0 +1,1 @@
+ALTER TABLE ingredients ADD COLUMN nutrition_unit VARCHAR(20) DEFAULT NULL AFTER unit;

@@ -1,6 +1,8 @@
 @import './base.css';
 @import './workspace.css';
 @import './csv-import.css';
+@import './lexical-editor.css';
+@import './calendar.css';
 
 body {
   margin: 0;

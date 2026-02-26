@@ -11,6 +11,8 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - from: src/main/migrations
     to: out/main/migrations
+  - from: src/main/migrations-sqlite
+    to: out/main/migrations-sqlite
 asarUnpack:
   - resources/**
 win:

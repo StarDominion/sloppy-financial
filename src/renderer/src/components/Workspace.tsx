@@ -25,7 +25,14 @@ import { TransactionForm } from "./TransactionForm";
 import { TransactionDetail } from "./TransactionDetail";
 import { TransactionAnalytics } from "./TransactionAnalytics";
 import { CsvImport } from "./CsvImport";
+import { TaskList } from "./TaskList";
+import { Calendar } from "./Calendar";
 import { Settings } from "./Settings";
+import { MealPlanning } from "./MealPlanning";
+import { IngredientDetail } from "./IngredientDetail";
+import { RecipeDetail } from "./RecipeDetail";
+import { MealSchedule } from "./MealSchedule";
+import { ShoppingList } from "./ShoppingList";
 
 type TabType =
   | "notes"
@@ -54,7 +61,16 @@ type TabType =
   | "create-transaction"
   | "transaction-detail"
   | "transaction-analytics"
-  | "csv-import";
+  | "csv-import"
+  | "task-list"
+  | "calendar"
+  | "meal-planning"
+  | "ingredient-detail"
+  | "create-ingredient"
+  | "recipe-detail"
+  | "create-recipe"
+  | "meal-plan-detail"
+  | "shopping-list-detail";
 
 interface Tab {
   id: string;
@@ -69,12 +85,38 @@ interface WorkspaceProps {
 }
 
 export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React.JSX.Element {
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const storageKey = `profile-tabs-${profileId}`;
+
+  const [tabs, setTabs] = useState<Tab[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.tabs || [];
+      }
+    } catch { /* ignore */ }
+    return [];
+  });
+  const [activeTabId, setActiveTabId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.activeTabId || null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  });
   const [showSettings, setShowSettings] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Persist tabs to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify({ tabs, activeTabId }));
+  }, [tabs, activeTabId, storageKey]);
 
   const updateScrollButtons = useCallback(() => {
     const el = tabsRef.current;
@@ -98,6 +140,53 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
       ro.disconnect();
     };
   }, [updateScrollButtons]);
+
+  // Dismiss context menu on any click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const dismiss = () => setContextMenu(null);
+    window.addEventListener("click", dismiss);
+    return () => window.removeEventListener("click", dismiss);
+  }, [contextMenu]);
+
+  const handleTabContextMenu = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, tabId });
+  };
+
+  const closeTabsToRight = (tabId: string) => {
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+    const idsToClose = tabs.slice(idx + 1).map((t) => t.id);
+    const newTabs = tabs.slice(0, idx + 1);
+    setTabs(newTabs);
+    if (activeTabId && idsToClose.includes(activeTabId)) {
+      setActiveTabId(newTabs[newTabs.length - 1]?.id ?? null);
+    }
+  };
+
+  const closeTabsToLeft = (tabId: string) => {
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+    const idsToClose = tabs.slice(0, idx).map((t) => t.id);
+    const newTabs = tabs.slice(idx);
+    setTabs(newTabs);
+    if (activeTabId && idsToClose.includes(activeTabId)) {
+      setActiveTabId(newTabs[0]?.id ?? null);
+    }
+  };
+
+  const closeOtherTabs = (tabId: string) => {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    setTabs([tab]);
+    setActiveTabId(tab.id);
+  };
+
+  const closeAllTabs = () => {
+    setTabs([]);
+    setActiveTabId(null);
+  };
 
   const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (tabsRef.current) {
@@ -198,6 +287,33 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
       case "csv-import":
         title = "Import Transactions";
         break;
+      case "task-list":
+        title = "Task List";
+        break;
+      case "calendar":
+        title = "Calendar";
+        break;
+      case "meal-planning":
+        title = "Meal Planning";
+        break;
+      case "ingredient-detail":
+        title = "Ingredient Details";
+        break;
+      case "create-ingredient":
+        title = "New Ingredient";
+        break;
+      case "recipe-detail":
+        title = "Recipe Details";
+        break;
+      case "create-recipe":
+        title = "New Recipe";
+        break;
+      case "meal-plan-detail":
+        title = "Meal Schedule";
+        break;
+      case "shopping-list-detail":
+        title = "Shopping List";
+        break;
     }
 
     const newTab: Tab = {
@@ -282,6 +398,24 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
       case "csv-import":
         addTab("csv-import");
         break;
+      case "open-task-list":
+        addTab("task-list");
+        break;
+      case "open-calendar":
+        addTab("calendar");
+        break;
+      case "open-meal-planning":
+        addTab("meal-planning");
+        break;
+      case "new-ingredient":
+        addTab("create-ingredient");
+        break;
+      case "new-recipe":
+        addTab("create-recipe");
+        break;
+      case "new-meal-plan":
+        addTab("meal-planning");
+        break;
       case "open-settings":
         setShowSettings(true);
         break;
@@ -328,6 +462,7 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
             <div
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
+              onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
               className={`workspace-tab ${activeTabId === tab.id ? "active" : ""}`}
             >
               <span>{tab.title}</span>
@@ -399,6 +534,7 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
             >
               {tab.type === "notes" && (
                 <NotesEditor
+                  tabId={tab.id}
                   initialNoteId={tab.data?.noteId}
                   profileId={profileId}
                   onNoteSaved={(note) => {
@@ -575,6 +711,9 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
                   onViewTransaction={(transactionId) =>
                     addTab("transaction-detail", { transactionId })
                   }
+                  onViewBill={(billId) =>
+                    addTab("bill-detail", { billId })
+                  }
                 />
               )}
               {tab.type === "create-transaction" && (
@@ -600,11 +739,113 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
                   onDone={() => closeTab(tab.id)}
                 />
               )}
+              {tab.type === "task-list" && (
+                <TaskList profileId={profileId} />
+              )}
+              {tab.type === "calendar" && (
+                <Calendar profileId={profileId} />
+              )}
+              {tab.type === "meal-planning" && (
+                <MealPlanning
+                  profileId={profileId}
+                  onOpenTab={(type, data) => addTab(type as TabType, data)}
+                />
+              )}
+              {(tab.type === "ingredient-detail" || tab.type === "create-ingredient") && (
+                <IngredientDetail
+                  ingredientId={tab.data?.ingredientId ?? null}
+                  profileId={profileId}
+                  onClose={() => closeTab(tab.id)}
+                />
+              )}
+              {(tab.type === "recipe-detail" || tab.type === "create-recipe") && (
+                <RecipeDetail
+                  recipeId={tab.data?.recipeId ?? null}
+                  profileId={profileId}
+                  onClose={() => closeTab(tab.id)}
+                />
+              )}
+              {tab.type === "meal-plan-detail" && (
+                <MealSchedule
+                  mealPlanId={tab.data?.mealPlanId}
+                  profileId={profileId}
+                  onGenerateShoppingList={(shoppingListId) =>
+                    addTab("shopping-list-detail", { shoppingListId })
+                  }
+                  onClose={() => closeTab(tab.id)}
+                />
+              )}
+              {tab.type === "shopping-list-detail" && (
+                <ShoppingList
+                  shoppingListId={tab.data?.shoppingListId}
+                  profileId={profileId}
+                  onClose={() => closeTab(tab.id)}
+                />
+              )}
             </div>
           ))
         )}
       </div>
       <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Tab Context Menu */}
+      {contextMenu && (() => {
+        const idx = tabs.findIndex((t) => t.id === contextMenu.tabId);
+        const hasLeft = idx > 0;
+        const hasRight = idx < tabs.length - 1;
+        const hasOthers = tabs.length > 1;
+        const menuItems: { label: string; action: () => void; disabled?: boolean }[] = [
+          { label: "Close", action: () => closeTab(contextMenu.tabId) },
+          { label: "Close Others", action: () => closeOtherTabs(contextMenu.tabId), disabled: !hasOthers },
+          { label: "Close to the Left", action: () => closeTabsToLeft(contextMenu.tabId), disabled: !hasLeft },
+          { label: "Close to the Right", action: () => closeTabsToRight(contextMenu.tabId), disabled: !hasRight },
+          { label: "Close All", action: () => closeAllTabs() },
+        ];
+        return (
+          <div
+            style={{
+              position: "fixed",
+              top: contextMenu.y,
+              left: contextMenu.x,
+              background: "#252525",
+              border: "1px solid #444",
+              borderRadius: 6,
+              padding: "4px 0",
+              zIndex: 2000,
+              minWidth: 180,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {menuItems.map((item) => (
+              <div
+                key={item.label}
+                onClick={() => {
+                  if (!item.disabled) {
+                    item.action();
+                    setContextMenu(null);
+                  }
+                }}
+                style={{
+                  padding: "6px 16px",
+                  fontSize: 13,
+                  color: item.disabled ? "#555" : "#ddd",
+                  cursor: item.disabled ? "default" : "pointer",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.disabled) e.currentTarget.style.background = "#333";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {item.label}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -58,6 +58,19 @@ export function MenuBar({ onAction }: MenuBarProps): React.JSX.Element {
     reminders: [
       { label: "View Reminders", action: "open-reminders" },
     ],
+    tasks: [
+      { label: "View Task List", action: "open-task-list" },
+    ],
+    calendar: [
+      { label: "Open Calendar", action: "open-calendar" },
+    ],
+    meals: [
+      { label: "Meal Planning", action: "open-meal-planning" },
+      { type: "separator" },
+      { label: "New Ingredient", action: "new-ingredient" },
+      { label: "New Recipe", action: "new-recipe" },
+      { label: "New Meal Plan", action: "new-meal-plan" },
+    ],
     transactions: [
       { label: "View Transactions", action: "open-transactions" },
       { label: "Analytics", action: "open-transaction-analytics" },

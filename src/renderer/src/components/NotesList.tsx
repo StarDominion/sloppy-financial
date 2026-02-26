@@ -8,6 +8,10 @@ type Note = {
   updated_at: string;
 };
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
 interface NotesListProps {
   onOpenNote: (noteId: number) => void;
   onNewNote: () => void;
@@ -39,7 +43,7 @@ export function NotesList({
   const filteredNotes = notes.filter(
     (n) =>
       n.title.toLowerCase().includes(search.toLowerCase()) ||
-      n.content.toLowerCase().includes(search.toLowerCase()),
+      stripHtml(n.content).toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -142,8 +146,7 @@ export function NotesList({
                   }}
                 >
                   {note.content
-                    ? note.content.substring(0, 150) +
-                      (note.content.length > 150 ? "..." : "")
+                    ? (() => { const text = stripHtml(note.content); return text.substring(0, 150) + (text.length > 150 ? "..." : ""); })()
                     : "No content"}
                 </div>
                 <div style={{ color: "#666", fontSize: "12px" }}>

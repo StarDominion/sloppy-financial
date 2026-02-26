@@ -35,6 +35,16 @@ type Tag = {
   color: string;
 };
 
+type AutomaticBill = {
+  id: number;
+  name: string;
+  amount: number;
+  description: string | null;
+  frequency: string;
+  generation_days: string | null;
+  due_dates: string | null;
+};
+
 interface TransactionDetailProps {
   transactionId: number;
   profileId: number;
@@ -48,10 +58,13 @@ export function TransactionDetail({
 }: TransactionDetailProps): React.JSX.Element {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
+  const [showMatchBill, setShowMatchBill] = useState(false);
+  const [autoBills, setAutoBills] = useState<AutomaticBill[]>([]);
+  const [matching, setMatching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -159,6 +172,41 @@ export function TransactionDetail({
     }
   }
 
+  async function handleOpenMatchBill(): Promise<void> {
+    try {
+      const bills = await window.api.bills.listAutomatic(profileId);
+      setAutoBills(bills);
+      setShowMatchBill(true);
+    } catch (err) {
+      console.error("Error loading automatic bills:", err);
+      alert("Failed to load automatic bills");
+    }
+  }
+
+  async function handleMatchBill(automaticBillId: number): Promise<void> {
+    setMatching(true);
+    try {
+      const result = await window.api.bills.matchTransaction(
+        transactionId,
+        automaticBillId,
+        profileId,
+      );
+      if (result.duplicate) {
+        alert("A bill record already exists for this month and amount.");
+      } else {
+        setShowMatchBill(false);
+        emitDataChange("transactions");
+        emitDataChange("bills");
+        await loadTransaction();
+      }
+    } catch (err) {
+      console.error("Error matching transaction to bill:", err);
+      alert("Failed to match transaction to bill");
+    } finally {
+      setMatching(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 20, color: "#fff" }}>
@@ -241,6 +289,22 @@ export function TransactionDetail({
           </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          {!transaction.bill_record_id && (
+            <button
+              onClick={handleOpenMatchBill}
+              style={{
+                padding: "8px 16px",
+                background: "#0969da",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+            >
+              Match to Bill
+            </button>
+          )}
           <button
             onClick={handleDelete}
             style={{
@@ -316,81 +380,47 @@ export function TransactionDetail({
         )}
         {detailRow(
           "Tags",
-          editingTags ? (
-            <div
-              style={{
-                position: "relative",
-                background: "#2a2a2a",
-                padding: "12px",
-                borderRadius: 6,
-                border: "1px solid #444",
-                maxWidth: 400,
-              }}
-            >
-              <TagSelector
-                selectedTagIds={tags.map((t) => t.id)}
-                onChange={handleTagsChange}
-                profileId={profileId}
-              />
-              <button
-                onClick={() => setEditingTags(false)}
-                style={{
-                  marginTop: 8,
-                  padding: "6px 12px",
-                  background: "#0969da",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
-              >
-                Done
-              </button>
-            </div>
-          ) : (
-            <div
-              onClick={() => setEditingTags(true)}
-              style={{
-                cursor: "pointer",
-                padding: "4px 8px",
-                borderRadius: 4,
-                display: "inline-flex",
-                gap: 6,
-                flexWrap: "wrap",
-                alignItems: "center",
-                transition: "background 0.15s",
-                margin: "-4px -8px",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#333")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              {tags.length > 0 ? (
-                tags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: 10,
-                      fontSize: 12,
-                      background: tag.color,
-                      color: "#fff",
-                    }}
-                  >
-                    {tag.name}
-                  </span>
-                ))
-              ) : (
-                <span style={{ color: "#666", fontSize: 13 }}>
-                  Click to add tags
+          <div
+            onClick={() => setEditingTags(true)}
+            style={{
+              cursor: "pointer",
+              padding: "4px 8px",
+              borderRadius: 4,
+              display: "inline-flex",
+              gap: 6,
+              flexWrap: "wrap",
+              alignItems: "center",
+              transition: "background 0.15s",
+              margin: "-4px -8px",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "#333")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            {tags.length > 0 ? (
+              tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    background: tag.color,
+                    color: "#fff",
+                  }}
+                >
+                  {tag.name}
                 </span>
-              )}
-            </div>
-          ),
+              ))
+            ) : (
+              <span style={{ color: "#666", fontSize: 13 }}>
+                Click to add tags
+              </span>
+            )}
+          </div>,
         )}
         {detailRow(
           "Document",
@@ -454,6 +484,155 @@ export function TransactionDetail({
           new Date(transaction.updated_at).toLocaleString(),
         )}
       </div>
+
+      {/* Edit Tags Modal */}
+      {editingTags && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setEditingTags(false)}
+        >
+          <div
+            style={{
+              background: "#1e1e1e",
+              border: "1px solid #444",
+              borderRadius: 8,
+              padding: 24,
+              minWidth: 350,
+              maxWidth: 450,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0" }}>Edit Tags</h3>
+            <TagSelector
+              selectedTagIds={tags.map((t) => t.id)}
+              onChange={handleTagsChange}
+              profileId={profileId}
+            />
+            <button
+              onClick={() => setEditingTags(false)}
+              style={{
+                marginTop: 16,
+                padding: "8px 16px",
+                background: "#0969da",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 13,
+                width: "100%",
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Match to Bill Modal */}
+      {showMatchBill && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowMatchBill(false)}
+        >
+          <div
+            style={{
+              background: "#1e1e1e",
+              border: "1px solid #444",
+              borderRadius: 8,
+              padding: 24,
+              minWidth: 400,
+              maxWidth: 500,
+              maxHeight: "70vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0" }}>Match to Automatic Bill</h3>
+            {autoBills.length === 0 ? (
+              <p style={{ color: "#999" }}>No automatic bills found.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {autoBills.map((bill) => (
+                  <button
+                    key={bill.id}
+                    onClick={() => handleMatchBill(bill.id)}
+                    disabled={matching}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      background: "#2a2a2a",
+                      border: "1px solid #444",
+                      borderRadius: 6,
+                      color: "#ddd",
+                      cursor: matching ? "not-allowed" : "pointer",
+                      fontSize: 14,
+                      textAlign: "left",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!matching) e.currentTarget.style.borderColor = "#0969da";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#444";
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 500 }}>{bill.name}</div>
+                      {bill.generation_days && (
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                          Gen days: {bill.generation_days}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ color: "#2da44e", fontWeight: "bold" }}>
+                      ${Number(bill.amount).toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setShowMatchBill(false)}
+              style={{
+                marginTop: 16,
+                padding: "8px 16px",
+                background: "#333",
+                color: "#ddd",
+                border: "1px solid #555",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 13,
+                width: "100%",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

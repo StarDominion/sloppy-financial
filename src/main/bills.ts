@@ -3,6 +3,7 @@ import { Database } from "./database/Database";
 import schedule from "node-schedule";
 import { createReminder } from "./reminders";
 import { getTagsForAutomaticBill, setTagsForBillRecord } from "./tags";
+import { getTransaction, updateTransaction } from "./transactions";
 
 export type AutomaticBill = {
   id: number;
@@ -405,6 +406,110 @@ function calculateNextDueDate(frequency: string, dates: number[]): Date {
     }
   }
   return target;
+}
+
+export async function matchTransactionToAutoBill(
+  transactionId: number,
+  automaticBillId: number,
+  profileId: number,
+): Promise<{ duplicate: boolean; billRecordId?: number; existingBillRecordId?: number }> {
+  const transaction = await getTransaction(transactionId);
+  if (!transaction) throw new Error("Transaction not found");
+
+  const [bill] = await query<AutomaticBill[]>(
+    "SELECT * FROM automatic_bills WHERE id = ?",
+    [automaticBillId],
+  );
+  if (!bill) throw new Error("Automatic bill not found");
+
+  const txDate = new Date(transaction.transaction_date);
+  const txDay = txDate.getDate();
+  const txMonth = txDate.getMonth();
+  const txYear = txDate.getFullYear();
+
+  // Determine the due date for the bill record
+  let dueDate: Date;
+  const dueDaysList = bill.due_dates
+    ? bill.due_dates.split(",").map((d) => parseInt(d.trim())).sort((a, b) => a - b)
+    : [bill.due_day];
+
+  if (bill.generation_days && bill.due_dates) {
+    // Both generation_days and due_dates exist - map transaction to the right billing cycle
+    const genDays = bill.generation_days.split(",").map((d) => parseInt(d.trim())).sort((a, b) => a - b);
+
+    // Find which generation cycle the transaction falls into
+    // The transaction should be on or after a generation day
+    let genIndex = -1;
+    for (let i = genDays.length - 1; i >= 0; i--) {
+      if (txDay >= genDays[i]) {
+        genIndex = i;
+        break;
+      }
+    }
+
+    if (genIndex >= 0 && genIndex < dueDaysList.length) {
+      // Use the corresponding due date
+      dueDate = new Date(txYear, txMonth, dueDaysList[genIndex]);
+      // If the due date is before the generation day, it belongs to the next month
+      if (dueDaysList[genIndex] < genDays[genIndex]) {
+        dueDate.setMonth(dueDate.getMonth() + 1);
+      }
+    } else if (genIndex === -1) {
+      // Transaction is before any generation day this month - belongs to previous cycle
+      const lastDue = dueDaysList[dueDaysList.length - 1];
+      dueDate = new Date(txYear, txMonth - 1, lastDue);
+    } else {
+      // More gen days than due days, use the last due date
+      dueDate = new Date(txYear, txMonth, dueDaysList[dueDaysList.length - 1]);
+    }
+  } else {
+    // Simple case: just use the closest due date in the transaction's month
+    const closestDue = dueDaysList.reduce((closest, day) =>
+      Math.abs(day - txDay) < Math.abs(closest - txDay) ? day : closest,
+    );
+    dueDate = new Date(txYear, txMonth, closestDue);
+  }
+
+  // Duplicate check: same automatic_bill_id, same month/year, same amount
+  const monthStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+  const monthEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+
+  const existing = await query<Array<{ id: number }>>(
+    `SELECT id FROM bill_records
+     WHERE automatic_bill_id = ?
+     AND amount = ?
+     AND due_date >= ?
+     AND due_date <= ?`,
+    [automaticBillId, bill.amount, monthStart, monthEnd],
+  );
+
+  if (existing.length > 0) {
+    return { duplicate: true, existingBillRecordId: existing[0].id };
+  }
+
+  // Create bill record
+  const billRecordId = await createBillRecord({
+    automatic_bill_id: bill.id,
+    name: bill.name,
+    amount: bill.amount,
+    due_date: dueDate,
+    status: "paid",
+    profileId,
+  });
+
+  // Copy tags from automatic bill to new bill record
+  const tags = await getTagsForAutomaticBill(bill.id);
+  if (tags.length > 0) {
+    await setTagsForBillRecord(billRecordId, tags.map((t) => t.id));
+  }
+
+  // Link transaction to the bill record
+  await updateTransaction(transactionId, { bill_record_id: billRecordId });
+
+  // Mark as paid
+  await markBillPaid(billRecordId);
+
+  return { duplicate: false, billRecordId };
 }
 
 // Run initially and then every day at 9am

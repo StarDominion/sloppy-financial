@@ -157,6 +157,32 @@ export async function getBillOwedBy(
   return rows.length > 0 ? rows[0] : null;
 }
 
+// Bill record owed to functions
+export async function setBillOwedTo(
+  billRecordId: number,
+  contactId: number | null,
+): Promise<void> {
+  const db = Database.getInstance();
+  await db.execute(
+    "UPDATE bill_records SET owed_to_contact_id = ? WHERE id = ?",
+    [contactId, billRecordId],
+  );
+}
+
+export async function getBillOwedTo(
+  billRecordId: number,
+): Promise<{ contact_id: number; contact_name: string } | null> {
+  const db = Database.getInstance();
+  const rows = await db.query<{ contact_id: number; contact_name: string }>(
+    `SELECT c.id as contact_id, c.name as contact_name
+    FROM bill_records br
+    JOIN contacts c ON br.owed_to_contact_id = c.id
+    WHERE br.id = ?`,
+    [billRecordId],
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // Create owed amount from bill
 export async function createOwedAmountFromBill(
   billRecordId: number,

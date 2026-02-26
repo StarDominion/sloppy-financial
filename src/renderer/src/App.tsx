@@ -92,7 +92,7 @@ function App(): React.JSX.Element {
           </div>
         </div>
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <NotesEditor initialNoteId={noteParams.id} />
+          <NotesEditor tabId={`standalone-${noteParams.id || 'new'}`} initialNoteId={noteParams.id} />
         </div>
       </div>
     );

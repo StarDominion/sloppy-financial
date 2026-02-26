@@ -102,6 +102,11 @@ declare global {
         ) => Promise<void>;
         payRecord: (id: number) => Promise<void>;
         updateRecordDocument: (id: number, storageKey: string, originalName?: string, md5Hash?: string) => Promise<void>;
+        matchTransaction: (
+          transactionId: number,
+          automaticBillId: number,
+          profileId: number,
+        ) => Promise<{ duplicate: boolean; billRecordId?: number; existingBillRecordId?: number }>;
       };
       contacts: {
         list: (profileId: number) => Promise<
@@ -140,6 +145,73 @@ declare global {
             phone?: string | null;
             address?: string | null;
             notes?: string | null;
+          },
+        ) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+      };
+      tasks: {
+        list: (profileId: number) => Promise<
+          Array<{
+            id: number;
+            profile_id: number;
+            title: string;
+            description: string | null;
+            completed: number;
+            sort_order: number;
+            created_at: string;
+            updated_at: string;
+          }>
+        >;
+        create: (data: {
+          title: string;
+          description?: string | null;
+          profileId: number;
+        }) => Promise<number>;
+        update: (
+          id: number,
+          data: {
+            title?: string;
+            description?: string | null;
+            completed?: number;
+            sort_order?: number;
+          },
+        ) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+      };
+      calendarEvents: {
+        list: (
+          profileId: number,
+          startDate: string,
+          endDate: string,
+        ) => Promise<
+          Array<{
+            id: number;
+            profile_id: number;
+            title: string;
+            description: string | null;
+            start_time: string;
+            duration_minutes: number;
+            color: string | null;
+            created_at: string;
+            updated_at: string;
+          }>
+        >;
+        create: (data: {
+          profileId: number;
+          title: string;
+          description?: string | null;
+          startTime: string;
+          durationMinutes: number;
+          color?: string | null;
+        }) => Promise<number>;
+        update: (
+          id: number,
+          data: {
+            title?: string;
+            description?: string | null;
+            startTime?: string;
+            durationMinutes?: number;
+            color?: string | null;
           },
         ) => Promise<void>;
         delete: (id: number) => Promise<void>;
@@ -210,6 +282,12 @@ declare global {
         ) => Promise<number>;
       };
       billOwedBy: {
+        get: (
+          billRecordId: number,
+        ) => Promise<{ contact_id: number; contact_name: string } | null>;
+        set: (billRecordId: number, contactId: number | null) => Promise<void>;
+      };
+      billOwedTo: {
         get: (
           billRecordId: number,
         ) => Promise<{ contact_id: number; contact_name: string } | null>;
@@ -649,6 +727,8 @@ declare global {
             profile_id: number;
             substring: string;
             tag: string;
+            match_type: "substring" | "full_string" | "regex";
+            toggle_transaction: boolean;
             replace_description: string | null;
             created_at: Date;
             updated_at: Date;
@@ -749,6 +829,206 @@ declare global {
           existingTags: Array<{ id: number; name: string }>,
         ) => Promise<string>;
         runPrompt: (prompt: string) => Promise<string>;
+      };
+      ingredients: {
+        list: (profileId: number) => Promise<Array<{
+          id: number; profile_id: number; name: string; unit: string;
+          nutrition_unit: string | null;
+          current_price: number | null; current_price_qty: number;
+          calories_per_unit: number | null; protein_per_unit: number | null;
+          carbs_per_unit: number | null; fat_per_unit: number | null;
+          dietary_tags: string | null; notes: string | null;
+          created_at: string; updated_at: string;
+        }>>;
+        get: (id: number) => Promise<{
+          id: number; profile_id: number; name: string; unit: string;
+          nutrition_unit: string | null;
+          current_price: number | null; current_price_qty: number;
+          calories_per_unit: number | null; protein_per_unit: number | null;
+          carbs_per_unit: number | null; fat_per_unit: number | null;
+          dietary_tags: string | null; notes: string | null;
+          created_at: string; updated_at: string;
+        } | null>;
+        create: (data: {
+          profileId: number; name: string; unit?: string;
+          nutritionUnit?: string | null;
+          currentPrice?: number | null; currentPriceQty?: number;
+          caloriesPerUnit?: number | null; proteinPerUnit?: number | null;
+          carbsPerUnit?: number | null; fatPerUnit?: number | null;
+          dietaryTags?: string | null; notes?: string | null;
+        }) => Promise<number>;
+        update: (id: number, data: {
+          name?: string; unit?: string;
+          nutritionUnit?: string | null;
+          currentPrice?: number | null; currentPriceQty?: number;
+          caloriesPerUnit?: number | null; proteinPerUnit?: number | null;
+          carbsPerUnit?: number | null; fatPerUnit?: number | null;
+          dietaryTags?: string | null; notes?: string | null;
+        }) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+        listPriceHistory: (ingredientId: number) => Promise<Array<{
+          id: number; ingredient_id: number; price: number; qty: number;
+          store: string | null; recorded_date: string; created_at: string;
+        }>>;
+        addPriceHistory: (data: {
+          ingredientId: number; price: number; qty?: number;
+          store?: string | null; recordedDate: string;
+        }) => Promise<number>;
+        deletePriceHistory: (id: number) => Promise<void>;
+        listBrands: (ingredientId: number) => Promise<Array<{
+          id: number; ingredient_id: number; name: string;
+          url: string | null; created_at: string;
+        }>>;
+        addBrand: (data: {
+          ingredientId: number; name: string; url?: string | null;
+        }) => Promise<number>;
+        updateBrand: (id: number, data: {
+          name?: string; url?: string | null;
+        }) => Promise<void>;
+        deleteBrand: (id: number) => Promise<void>;
+      };
+      recipes: {
+        list: (profileId: number) => Promise<Array<{
+          id: number; profile_id: number; name: string; meal_type: string;
+          servings: number; prep_time_minutes: number | null;
+          cook_time_minutes: number | null; instructions: string | null;
+          notes: string | null; created_at: string; updated_at: string;
+        }>>;
+        get: (id: number) => Promise<{
+          id: number; profile_id: number; name: string; meal_type: string;
+          servings: number; prep_time_minutes: number | null;
+          cook_time_minutes: number | null; instructions: string | null;
+          notes: string | null; created_at: string; updated_at: string;
+        } | null>;
+        create: (data: {
+          profileId: number; name: string; mealType?: string;
+          servings?: number; prepTimeMinutes?: number | null;
+          cookTimeMinutes?: number | null; instructions?: string | null;
+          notes?: string | null;
+        }) => Promise<number>;
+        update: (id: number, data: {
+          name?: string; mealType?: string; servings?: number;
+          prepTimeMinutes?: number | null; cookTimeMinutes?: number | null;
+          instructions?: string | null; notes?: string | null;
+        }) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+        getIngredients: (recipeId: number) => Promise<Array<{
+          id: number; recipe_id: number; ingredient_id: number;
+          quantity: number; unit_override: string | null; notes: string | null;
+          ingredient_name: string; ingredient_unit: string;
+          nutrition_unit: string | null;
+          current_price: number | null; current_price_qty: number;
+          calories_per_unit: number | null; protein_per_unit: number | null;
+          carbs_per_unit: number | null; fat_per_unit: number | null;
+        }>>;
+        setIngredients: (recipeId: number, items: Array<{
+          ingredientId: number; quantity: number;
+          unitOverride?: string | null; notes?: string | null;
+        }>) => Promise<void>;
+        getNutrition: (recipeId: number) => Promise<{
+          totalCalories: number; totalProtein: number;
+          totalCarbs: number; totalFat: number;
+          perServing: { calories: number; protein: number; carbs: number; fat: number; };
+        }>;
+        getCost: (recipeId: number) => Promise<{
+          totalCost: number; costPerServing: number;
+        }>;
+      };
+      mealPlans: {
+        list: (profileId: number) => Promise<Array<{
+          id: number; profile_id: number; name: string;
+          start_date: string; end_date: string; notes: string | null;
+          created_at: string; updated_at: string;
+        }>>;
+        get: (id: number) => Promise<{
+          id: number; profile_id: number; name: string;
+          start_date: string; end_date: string; notes: string | null;
+          created_at: string; updated_at: string;
+        } | null>;
+        create: (data: {
+          profileId: number; name: string;
+          startDate: string; endDate: string; notes?: string | null;
+        }) => Promise<number>;
+        update: (id: number, data: {
+          name?: string; startDate?: string; endDate?: string;
+          notes?: string | null;
+        }) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+        listEntries: (mealPlanId: number) => Promise<Array<{
+          id: number; meal_plan_id: number; recipe_id: number;
+          plan_date: string; meal_slot: string; servings_to_eat: number;
+          sort_order: number; created_at: string;
+          recipe_name?: string; recipe_servings?: number; recipe_meal_type?: string;
+        }>>;
+        createEntry: (data: {
+          mealPlanId: number; recipeId: number; planDate: string;
+          mealSlot?: string; servingsToEat?: number; sortOrder?: number;
+        }) => Promise<number>;
+        updateEntry: (id: number, data: {
+          recipeId?: number; planDate?: string; mealSlot?: string;
+          servingsToEat?: number; sortOrder?: number;
+        }) => Promise<void>;
+        deleteEntry: (id: number) => Promise<void>;
+        getDailyNutrition: (mealPlanId: number, date: string) => Promise<{
+          calories: number; protein: number; carbs: number; fat: number;
+        }>;
+        getLeftovers: (mealPlanId: number, date: string, recipeId: number) => Promise<number>;
+        syncToCalendar: (mealPlanId: number, profileId: number) => Promise<void>;
+      };
+      shoppingLists: {
+        list: (profileId: number) => Promise<Array<{
+          id: number; profile_id: number; meal_plan_id: number | null;
+          transaction_id: number | null; name: string; status: string;
+          estimated_total: number | null; created_at: string; updated_at: string;
+        }>>;
+        get: (id: number) => Promise<{
+          id: number; profile_id: number; meal_plan_id: number | null;
+          transaction_id: number | null; name: string; status: string;
+          estimated_total: number | null; created_at: string; updated_at: string;
+        } | null>;
+        create: (data: {
+          profileId: number; name: string;
+          mealPlanId?: number | null; transactionId?: number | null;
+        }) => Promise<number>;
+        update: (id: number, data: {
+          name?: string; status?: string;
+          estimatedTotal?: number | null; transactionId?: number | null;
+        }) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+        listItems: (shoppingListId: number) => Promise<Array<{
+          id: number; shopping_list_id: number; ingredient_id: number | null;
+          name: string; quantity: number; unit: string | null;
+          estimated_price: number | null; checked: number; sort_order: number;
+        }>>;
+        addItem: (data: {
+          shoppingListId: number; ingredientId?: number | null;
+          name: string; quantity?: number; unit?: string | null;
+          estimatedPrice?: number | null; sortOrder?: number;
+        }) => Promise<number>;
+        updateItem: (id: number, data: {
+          name?: string; quantity?: number; unit?: string | null;
+          estimatedPrice?: number | null; checked?: number; sortOrder?: number;
+        }) => Promise<void>;
+        deleteItem: (id: number) => Promise<void>;
+        generateFromPlan: (mealPlanId: number, profileId: number) => Promise<number>;
+        linkTransaction: (shoppingListId: number, transactionId: number) => Promise<void>;
+      };
+      mealBudgets: {
+        list: (profileId: number) => Promise<Array<{
+          id: number; profile_id: number; period_type: string;
+          budget_amount: number; start_date: string; end_date: string | null;
+          created_at: string; updated_at: string;
+        }>>;
+        create: (data: {
+          profileId: number; periodType?: string;
+          budgetAmount: number; startDate: string; endDate?: string | null;
+        }) => Promise<number>;
+        update: (id: number, data: {
+          periodType?: string; budgetAmount?: number;
+          startDate?: string; endDate?: string | null;
+        }) => Promise<void>;
+        delete: (id: number) => Promise<void>;
+        getSpending: (profileId: number, startDate: string, endDate: string) => Promise<number>;
       };
       profiles: {
         list: () => Promise<

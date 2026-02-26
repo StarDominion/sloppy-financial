@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from "electron";
+import { app, shell, BrowserWindow, ipcMain, protocol } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
@@ -21,6 +21,7 @@ import {
   updateBillRecord,
   markBillPaid,
   updateBillRecordDocument,
+  matchTransactionToAutoBill,
 } from "./bills";
 import { testMySQLConnection, testMinIOConnection, testSqliteConnection } from "./connection-tests";
 import {
@@ -53,7 +54,16 @@ import {
   createOwedAmountFromBill,
   getBillOwedBy,
   setBillOwedBy,
+  getBillOwedTo,
+  setBillOwedTo,
 } from "./owed-amounts";
+import { listTasks, createTask, updateTask, deleteTask } from "./tasks";
+import {
+  listCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "./calendar-events";
 import {
   listTags,
   getTag,
@@ -130,6 +140,65 @@ import {
   buildClassifyPrompt,
   runOllamaPrompt,
 } from "./csv-import";
+import {
+  listIngredients,
+  getIngredient,
+  createIngredient,
+  updateIngredient,
+  deleteIngredient,
+  listPriceHistory,
+  addPriceHistory,
+  deletePriceHistory,
+  listBrands,
+  addBrand,
+  updateBrand,
+  deleteBrand,
+} from "./ingredients";
+import {
+  listRecipes,
+  getRecipe,
+  createRecipe,
+  updateRecipe,
+  deleteRecipe,
+  getRecipeIngredients,
+  setRecipeIngredients,
+  getRecipeNutrition,
+  getRecipeCost,
+} from "./recipes";
+import {
+  listMealPlans,
+  getMealPlan,
+  createMealPlan,
+  updateMealPlan,
+  deleteMealPlan,
+  listMealPlanEntries,
+  createMealPlanEntry,
+  updateMealPlanEntry,
+  deleteMealPlanEntry,
+  getDailyNutrition,
+  getLeftovers,
+  syncMealPlanToCalendar,
+} from "./meal-plans";
+import {
+  listShoppingLists,
+  getShoppingList,
+  createShoppingList,
+  updateShoppingList,
+  deleteShoppingList,
+  listShoppingListItems,
+  addShoppingListItem,
+  updateShoppingListItem,
+  deleteShoppingListItem,
+  generateFromMealPlan,
+  linkTransaction as linkShoppingListTransaction,
+} from "./shopping-lists";
+import {
+  listMealBudgets,
+  createMealBudget,
+  updateMealBudget,
+  deleteMealBudget,
+  getBudgetSpending,
+} from "./meal-budgets";
 import {
   listProfiles,
   getProfile,
@@ -269,10 +338,43 @@ function createWorkspaceWindow(): void {
   }
 }
 
+// Register custom protocol for serving stored files (images, etc.) in the renderer.
+// Must be called before app.whenReady().
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "app-file",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // Handle app-file:// protocol requests by reading from FileStorage
+  protocol.handle("app-file", async (request) => {
+    const url = new URL(request.url);
+    const storageKey = url.pathname.replace(/^\/+/, "");
+    try {
+      const result = await FileStorage.getInstance().download(storageKey);
+      return new Response(new Uint8Array(result.data), {
+        status: 200,
+        headers: {
+          "Content-Type": result.contentType,
+          "Cache-Control": "max-age=3600",
+        },
+      });
+    } catch {
+      return new Response("File not found", { status: 404 });
+    }
+  });
+
   // Set app user model id for windows
   electronApp.setAppUserModelId("com.electron");
 
@@ -342,6 +444,9 @@ app.whenReady().then(async () => {
   ipcMain.handle("bills:updateRecordDocument", async (_, { id, storageKey, originalName, md5Hash }) =>
     updateBillRecordDocument(id, storageKey, originalName, md5Hash),
   );
+  ipcMain.handle("bills:matchTransaction", async (_, { transactionId, automaticBillId, profileId }) =>
+    matchTransactionToAutoBill(transactionId, automaticBillId, profileId),
+  );
   // Contacts IPC
   ipcMain.handle("contacts:list", async (_, profileId: number) => listContacts(profileId));
   ipcMain.handle("contacts:get", async (_, id) => getContact(id));
@@ -350,6 +455,20 @@ app.whenReady().then(async () => {
     updateContact(id, data),
   );
   ipcMain.handle("contacts:delete", async (_, id) => deleteContact(id));
+
+  // Tasks IPC
+  ipcMain.handle("tasks:list", async (_, profileId: number) => listTasks(profileId));
+  ipcMain.handle("tasks:create", async (_, data) => createTask(data));
+  ipcMain.handle("tasks:update", async (_, { id, data }) => updateTask(id, data));
+  ipcMain.handle("tasks:delete", async (_, id) => deleteTask(id));
+
+  // Calendar Events IPC
+  ipcMain.handle("calendarEvents:list", async (_, { profileId, startDate, endDate }) =>
+    listCalendarEvents(profileId, startDate, endDate),
+  );
+  ipcMain.handle("calendarEvents:create", async (_, data) => createCalendarEvent(data));
+  ipcMain.handle("calendarEvents:update", async (_, { id, data }) => updateCalendarEvent(id, data));
+  ipcMain.handle("calendarEvents:delete", async (_, id) => deleteCalendarEvent(id));
 
   // Owed Amounts IPC
   ipcMain.handle("owedAmounts:list", async (_, profileId: number) => listOwedAmounts(profileId));
@@ -382,6 +501,14 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("billOwedBy:set", async (_, { billRecordId, contactId }) =>
     setBillOwedBy(billRecordId, contactId),
+  );
+
+  // Bill Owed To IPC
+  ipcMain.handle("billOwedTo:get", async (_, billRecordId) =>
+    getBillOwedTo(billRecordId),
+  );
+  ipcMain.handle("billOwedTo:set", async (_, { billRecordId, contactId }) =>
+    setBillOwedTo(billRecordId, contactId),
   );
 
   // Tags IPC
@@ -571,6 +698,65 @@ app.whenReady().then(async () => {
   ipcMain.handle("profiles:update", async (_, { id, data }) => updateProfile(id, data));
   ipcMain.handle("profiles:delete", async (_, id) => deleteProfile(id));
   ipcMain.handle("profiles:touch", async (_, id) => touchProfile(id));
+
+  // Ingredients IPC
+  ipcMain.handle("ingredients:list", async (_, profileId) => listIngredients(profileId));
+  ipcMain.handle("ingredients:get", async (_, id) => getIngredient(id));
+  ipcMain.handle("ingredients:create", async (_, data) => createIngredient(data));
+  ipcMain.handle("ingredients:update", async (_, { id, data }) => updateIngredient(id, data));
+  ipcMain.handle("ingredients:delete", async (_, id) => deleteIngredient(id));
+  ipcMain.handle("ingredients:listPriceHistory", async (_, ingredientId) => listPriceHistory(ingredientId));
+  ipcMain.handle("ingredients:addPriceHistory", async (_, data) => addPriceHistory(data));
+  ipcMain.handle("ingredients:deletePriceHistory", async (_, id) => deletePriceHistory(id));
+  ipcMain.handle("ingredients:listBrands", async (_, ingredientId) => listBrands(ingredientId));
+  ipcMain.handle("ingredients:addBrand", async (_, data) => addBrand(data));
+  ipcMain.handle("ingredients:updateBrand", async (_, { id, data }) => updateBrand(id, data));
+  ipcMain.handle("ingredients:deleteBrand", async (_, id) => deleteBrand(id));
+
+  // Recipes IPC
+  ipcMain.handle("recipes:list", async (_, profileId) => listRecipes(profileId));
+  ipcMain.handle("recipes:get", async (_, id) => getRecipe(id));
+  ipcMain.handle("recipes:create", async (_, data) => createRecipe(data));
+  ipcMain.handle("recipes:update", async (_, { id, data }) => updateRecipe(id, data));
+  ipcMain.handle("recipes:delete", async (_, id) => deleteRecipe(id));
+  ipcMain.handle("recipes:getIngredients", async (_, recipeId) => getRecipeIngredients(recipeId));
+  ipcMain.handle("recipes:setIngredients", async (_, { recipeId, items }) => setRecipeIngredients(recipeId, items));
+  ipcMain.handle("recipes:getNutrition", async (_, recipeId) => getRecipeNutrition(recipeId));
+  ipcMain.handle("recipes:getCost", async (_, recipeId) => getRecipeCost(recipeId));
+
+  // Meal Plans IPC
+  ipcMain.handle("mealPlans:list", async (_, profileId) => listMealPlans(profileId));
+  ipcMain.handle("mealPlans:get", async (_, id) => getMealPlan(id));
+  ipcMain.handle("mealPlans:create", async (_, data) => createMealPlan(data));
+  ipcMain.handle("mealPlans:update", async (_, { id, data }) => updateMealPlan(id, data));
+  ipcMain.handle("mealPlans:delete", async (_, id) => deleteMealPlan(id));
+  ipcMain.handle("mealPlans:listEntries", async (_, mealPlanId) => listMealPlanEntries(mealPlanId));
+  ipcMain.handle("mealPlans:createEntry", async (_, data) => createMealPlanEntry(data));
+  ipcMain.handle("mealPlans:updateEntry", async (_, { id, data }) => updateMealPlanEntry(id, data));
+  ipcMain.handle("mealPlans:deleteEntry", async (_, id) => deleteMealPlanEntry(id));
+  ipcMain.handle("mealPlans:getDailyNutrition", async (_, { mealPlanId, date }) => getDailyNutrition(mealPlanId, date));
+  ipcMain.handle("mealPlans:getLeftovers", async (_, { mealPlanId, date, recipeId }) => getLeftovers(mealPlanId, date, recipeId));
+  ipcMain.handle("mealPlans:syncToCalendar", async (_, { mealPlanId, profileId }) => syncMealPlanToCalendar(mealPlanId, profileId));
+
+  // Shopping Lists IPC
+  ipcMain.handle("shoppingLists:list", async (_, profileId) => listShoppingLists(profileId));
+  ipcMain.handle("shoppingLists:get", async (_, id) => getShoppingList(id));
+  ipcMain.handle("shoppingLists:create", async (_, data) => createShoppingList(data));
+  ipcMain.handle("shoppingLists:update", async (_, { id, data }) => updateShoppingList(id, data));
+  ipcMain.handle("shoppingLists:delete", async (_, id) => deleteShoppingList(id));
+  ipcMain.handle("shoppingLists:listItems", async (_, shoppingListId) => listShoppingListItems(shoppingListId));
+  ipcMain.handle("shoppingLists:addItem", async (_, data) => addShoppingListItem(data));
+  ipcMain.handle("shoppingLists:updateItem", async (_, { id, data }) => updateShoppingListItem(id, data));
+  ipcMain.handle("shoppingLists:deleteItem", async (_, id) => deleteShoppingListItem(id));
+  ipcMain.handle("shoppingLists:generateFromPlan", async (_, { mealPlanId, profileId }) => generateFromMealPlan(mealPlanId, profileId));
+  ipcMain.handle("shoppingLists:linkTransaction", async (_, { shoppingListId, transactionId }) => linkShoppingListTransaction(shoppingListId, transactionId));
+
+  // Meal Budgets IPC
+  ipcMain.handle("mealBudgets:list", async (_, profileId) => listMealBudgets(profileId));
+  ipcMain.handle("mealBudgets:create", async (_, data) => createMealBudget(data));
+  ipcMain.handle("mealBudgets:update", async (_, { id, data }) => updateMealBudget(id, data));
+  ipcMain.handle("mealBudgets:delete", async (_, id) => deleteMealBudget(id));
+  ipcMain.handle("mealBudgets:getSpending", async (_, { profileId, startDate, endDate }) => getBudgetSpending(profileId, startDate, endDate));
 
   // Connection test IPC
   ipcMain.handle("settings:testMySQL", async (_, mysqlConfig) =>

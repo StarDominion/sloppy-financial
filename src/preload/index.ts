@@ -40,6 +40,8 @@ const api = {
     payRecord: (id: number) => ipcRenderer.invoke("bills:payRecord", id),
     updateRecordDocument: (id: number, storageKey: string, originalName?: string, md5Hash?: string) =>
       ipcRenderer.invoke("bills:updateRecordDocument", { id, storageKey, originalName, md5Hash }),
+    matchTransaction: (transactionId: number, automaticBillId: number, profileId: number) =>
+      ipcRenderer.invoke("bills:matchTransaction", { transactionId, automaticBillId, profileId }),
   },
   contacts: {
     list: (profileId: number) => ipcRenderer.invoke("contacts:list", profileId),
@@ -48,6 +50,34 @@ const api = {
     update: (id: number, data: any) =>
       ipcRenderer.invoke("contacts:update", { id, data }),
     delete: (id: number) => ipcRenderer.invoke("contacts:delete", id),
+  },
+  tasks: {
+    list: (profileId: number) => ipcRenderer.invoke("tasks:list", profileId),
+    create: (data: { title: string; description?: string | null; profileId: number }) =>
+      ipcRenderer.invoke("tasks:create", data),
+    update: (id: number, data: { title?: string; description?: string | null; completed?: number; sort_order?: number }) =>
+      ipcRenderer.invoke("tasks:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("tasks:delete", id),
+  },
+  calendarEvents: {
+    list: (profileId: number, startDate: string, endDate: string) =>
+      ipcRenderer.invoke("calendarEvents:list", { profileId, startDate, endDate }),
+    create: (data: {
+      profileId: number;
+      title: string;
+      description?: string | null;
+      startTime: string;
+      durationMinutes: number;
+      color?: string | null;
+    }) => ipcRenderer.invoke("calendarEvents:create", data),
+    update: (id: number, data: {
+      title?: string;
+      description?: string | null;
+      startTime?: string;
+      durationMinutes?: number;
+      color?: string | null;
+    }) => ipcRenderer.invoke("calendarEvents:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("calendarEvents:delete", id),
   },
   owedAmounts: {
     list: (profileId: number) => ipcRenderer.invoke("owedAmounts:list", profileId),
@@ -73,6 +103,12 @@ const api = {
       ipcRenderer.invoke("billOwedBy:get", billRecordId),
     set: (billRecordId: number, contactId: number | null) =>
       ipcRenderer.invoke("billOwedBy:set", { billRecordId, contactId }),
+  },
+  billOwedTo: {
+    get: (billRecordId: number) =>
+      ipcRenderer.invoke("billOwedTo:get", billRecordId),
+    set: (billRecordId: number, contactId: number | null) =>
+      ipcRenderer.invoke("billOwedTo:set", { billRecordId, contactId }),
   },
   tags: {
     list: (profileId: number) => ipcRenderer.invoke("tags:list", profileId),
@@ -199,6 +235,71 @@ const api = {
       ipcRenderer.invoke("csvImport:buildClassifyPrompt", { transactions, existingTags }),
     runPrompt: (prompt: string) =>
       ipcRenderer.invoke("csvImport:runPrompt", prompt),
+  },
+  ingredients: {
+    list: (profileId: number) => ipcRenderer.invoke("ingredients:list", profileId),
+    get: (id: number) => ipcRenderer.invoke("ingredients:get", id),
+    create: (data: any) => ipcRenderer.invoke("ingredients:create", data),
+    update: (id: number, data: any) => ipcRenderer.invoke("ingredients:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("ingredients:delete", id),
+    listPriceHistory: (ingredientId: number) => ipcRenderer.invoke("ingredients:listPriceHistory", ingredientId),
+    addPriceHistory: (data: any) => ipcRenderer.invoke("ingredients:addPriceHistory", data),
+    deletePriceHistory: (id: number) => ipcRenderer.invoke("ingredients:deletePriceHistory", id),
+    listBrands: (ingredientId: number) => ipcRenderer.invoke("ingredients:listBrands", ingredientId),
+    addBrand: (data: any) => ipcRenderer.invoke("ingredients:addBrand", data),
+    updateBrand: (id: number, data: any) => ipcRenderer.invoke("ingredients:updateBrand", { id, data }),
+    deleteBrand: (id: number) => ipcRenderer.invoke("ingredients:deleteBrand", id),
+  },
+  recipes: {
+    list: (profileId: number) => ipcRenderer.invoke("recipes:list", profileId),
+    get: (id: number) => ipcRenderer.invoke("recipes:get", id),
+    create: (data: any) => ipcRenderer.invoke("recipes:create", data),
+    update: (id: number, data: any) => ipcRenderer.invoke("recipes:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("recipes:delete", id),
+    getIngredients: (recipeId: number) => ipcRenderer.invoke("recipes:getIngredients", recipeId),
+    setIngredients: (recipeId: number, items: any[]) => ipcRenderer.invoke("recipes:setIngredients", { recipeId, items }),
+    getNutrition: (recipeId: number) => ipcRenderer.invoke("recipes:getNutrition", recipeId),
+    getCost: (recipeId: number) => ipcRenderer.invoke("recipes:getCost", recipeId),
+  },
+  mealPlans: {
+    list: (profileId: number) => ipcRenderer.invoke("mealPlans:list", profileId),
+    get: (id: number) => ipcRenderer.invoke("mealPlans:get", id),
+    create: (data: any) => ipcRenderer.invoke("mealPlans:create", data),
+    update: (id: number, data: any) => ipcRenderer.invoke("mealPlans:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("mealPlans:delete", id),
+    listEntries: (mealPlanId: number) => ipcRenderer.invoke("mealPlans:listEntries", mealPlanId),
+    createEntry: (data: any) => ipcRenderer.invoke("mealPlans:createEntry", data),
+    updateEntry: (id: number, data: any) => ipcRenderer.invoke("mealPlans:updateEntry", { id, data }),
+    deleteEntry: (id: number) => ipcRenderer.invoke("mealPlans:deleteEntry", id),
+    getDailyNutrition: (mealPlanId: number, date: string) =>
+      ipcRenderer.invoke("mealPlans:getDailyNutrition", { mealPlanId, date }),
+    getLeftovers: (mealPlanId: number, date: string, recipeId: number) =>
+      ipcRenderer.invoke("mealPlans:getLeftovers", { mealPlanId, date, recipeId }),
+    syncToCalendar: (mealPlanId: number, profileId: number) =>
+      ipcRenderer.invoke("mealPlans:syncToCalendar", { mealPlanId, profileId }),
+  },
+  shoppingLists: {
+    list: (profileId: number) => ipcRenderer.invoke("shoppingLists:list", profileId),
+    get: (id: number) => ipcRenderer.invoke("shoppingLists:get", id),
+    create: (data: any) => ipcRenderer.invoke("shoppingLists:create", data),
+    update: (id: number, data: any) => ipcRenderer.invoke("shoppingLists:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("shoppingLists:delete", id),
+    listItems: (shoppingListId: number) => ipcRenderer.invoke("shoppingLists:listItems", shoppingListId),
+    addItem: (data: any) => ipcRenderer.invoke("shoppingLists:addItem", data),
+    updateItem: (id: number, data: any) => ipcRenderer.invoke("shoppingLists:updateItem", { id, data }),
+    deleteItem: (id: number) => ipcRenderer.invoke("shoppingLists:deleteItem", id),
+    generateFromPlan: (mealPlanId: number, profileId: number) =>
+      ipcRenderer.invoke("shoppingLists:generateFromPlan", { mealPlanId, profileId }),
+    linkTransaction: (shoppingListId: number, transactionId: number) =>
+      ipcRenderer.invoke("shoppingLists:linkTransaction", { shoppingListId, transactionId }),
+  },
+  mealBudgets: {
+    list: (profileId: number) => ipcRenderer.invoke("mealBudgets:list", profileId),
+    create: (data: any) => ipcRenderer.invoke("mealBudgets:create", data),
+    update: (id: number, data: any) => ipcRenderer.invoke("mealBudgets:update", { id, data }),
+    delete: (id: number) => ipcRenderer.invoke("mealBudgets:delete", id),
+    getSpending: (profileId: number, startDate: string, endDate: string) =>
+      ipcRenderer.invoke("mealBudgets:getSpending", { profileId, startDate, endDate }),
   },
   profiles: {
     list: () => ipcRenderer.invoke("profiles:list"),

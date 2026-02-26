@@ -262,9 +262,13 @@ export async function openWorkspace(folderPath: string): Promise<void> {
   // Run migrations
   await runMigrations();
 
-  // Initialize schedulers
-  initBillScheduler();
-  await loadAndScheduleReminders();
+  // Initialize schedulers (non-fatal if they fail)
+  try {
+    initBillScheduler();
+    await loadAndScheduleReminders();
+  } catch (err) {
+    console.error("Failed to initialize schedulers:", err);
+  }
 
   // Update state
   currentWorkspacePath = folderPath;

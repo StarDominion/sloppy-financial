@@ -4,6 +4,11 @@ type TransactionType = "deposit" | "withdrawal";
 
 const TYPE_OPTIONS: TransactionType[] = ["deposit", "withdrawal"];
 
+function toTransactionType(t: string): TransactionType {
+  if (t === "deposit" || t === "withdrawal") return t;
+  return "withdrawal";
+}
+
 interface ColumnMapping {
   csvColumn: string;
   dbColumn: string;
@@ -57,14 +62,14 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
   const [mappingPrompt, setMappingPrompt] = useState("");
   const [mappingPromptResponse, setMappingPromptResponse] = useState("");
   const [mappingPromptLoading, setMappingPromptLoading] = useState(false);
-  const [classifyPromptOpen, setClassifyPromptOpen] = useState(false);
+  const [, setClassifyPromptOpen] = useState(false);
   const [classifyPrompt, setClassifyPrompt] = useState("");
   const [classifyPromptResponse, setClassifyPromptResponse] = useState("");
   const [classifyPromptLoading, setClassifyPromptLoading] = useState(false);
 
   // Tag rules state
   const [tagRules, setTagRules] = useState<TagRule[]>([]);
-  const [tagRulesOpen, setTagRulesOpen] = useState(false);
+  const [, setTagRulesOpen] = useState(false);
   const [tagRulesSearch, setTagRulesSearch] = useState("");
   const [sortByUntagged, setSortByUntagged] = useState(false);
 
@@ -186,7 +191,11 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
             // no tags available
           }
 
-          classifications = await window.api.csvImport.classify(mapped, tags);
+          const rawClassifications = await window.api.csvImport.classify(mapped, tags);
+          classifications = rawClassifications.map((c) => ({
+            ...c,
+            type: toTransactionType(c.type),
+          }));
 
           // Build default classify prompt for the editor
           const defaultClassifyPrompt = await window.api.csvImport.buildClassifyPrompt(
@@ -205,7 +214,7 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
         // Merge classifications into import rows
         const rows: ImportRow[] = mapped.map((t) => {
           const cls = classifications.find((c) => c._rowIndex === t._rowIndex);
-          let type = cls?.type || t.type;
+          let type = toTransactionType(cls?.type || t.type);
 
           // Apply inverse if enabled (swap deposit/withdrawal for credit cards)
           if (inverseTypes) {
@@ -284,7 +293,7 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
         setImportRows((prev) =>
           prev.map((r) =>
             r._rowIndex === rowIndex
-              ? { ...r, type: cls.type, suggestedTags: cls.suggestedTags }
+              ? { ...r, type: toTransactionType(cls.type), suggestedTags: cls.suggestedTags }
               : r,
           ),
         );
@@ -668,7 +677,7 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
       <div className="csv-import__header">
         <h2>Import Bank Transactions</h2>
         <div className="csv-import__steps">
-          <span className={`csv-import__step ${step === "upload" ? "active" : step !== "upload" ? "done" : ""}`}>
+          <span className={`csv-import__step ${step === "upload" ? "active" : "done"}`}>
             1. Upload
           </span>
           <span className="csv-import__step-arrow">→</span>
@@ -1175,7 +1184,7 @@ export function CsvImport({ profileId, onDone }: CsvImportProps): React.JSX.Elem
                 >
                   + Add Rule
                 </button>
-                {filteredTagRules.map((rule, i) => {
+                {filteredTagRules.map((rule) => {
                   const actualIndex = tagRules.indexOf(rule);
                   const matchCount = getRuleMatchCount(rule);
                   return (

@@ -1,0 +1,255 @@
+/* ── Lexical Editor Container ───────────────────────────────── */
+
+.lexical-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1e1e1e;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+
+.lexical-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.lexical-toolbar-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 28px;
+  line-height: 1.4;
+  transition: background 0.1s, color 0.1s;
+}
+
+.lexical-toolbar-btn:hover {
+  background: #37373d;
+  color: #fff;
+}
+
+.lexical-toolbar-btn.active {
+  background: #094771;
+  border-color: #007acc;
+  color: #fff;
+}
+
+.lexical-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: #444;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── Editor Content Area ────────────────────────────────────── */
+
+.lexical-editor-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.lexical-content-editable {
+  outline: none;
+  min-height: 100%;
+  padding: 20px 40px;
+  color: #e8eaed;
+  font-size: 15px;
+  line-height: 1.7;
+  caret-color: #fff;
+}
+
+/* ── Placeholder ────────────────────────────────────────────── */
+
+.lexical-placeholder {
+  position: absolute;
+  top: 20px;
+  left: 40px;
+  color: #555;
+  font-size: 15px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+
+.lexical-h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.5em 0 0.3em;
+  color: #fff;
+}
+
+.lexical-h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.5em 0 0.3em;
+  color: #fff;
+}
+
+.lexical-h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0.5em 0 0.3em;
+  color: #f0f0f0;
+}
+
+.lexical-h4,
+.lexical-h5,
+.lexical-h6 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.4em 0 0.2em;
+  color: #ddd;
+}
+
+.lexical-paragraph {
+  margin: 0 0 0.5em;
+}
+
+/* ── Blockquote ─────────────────────────────────────────────── */
+
+.lexical-quote {
+  border-left: 3px solid #555;
+  margin: 0.5em 0;
+  padding: 4px 16px;
+  color: #aaa;
+  font-style: italic;
+}
+
+/* ── Code Block ─────────────────────────────────────────────── */
+
+.lexical-code {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 0.5em 0;
+  overflow-x: auto;
+  font-family: "Consolas", "Courier New", "Fira Code", monospace;
+  font-size: 13px;
+  color: #ddd;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+/* ── Inline Code ────────────────────────────────────────────── */
+
+.lexical-inline-code {
+  background: #2a2a3e;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 0.9em;
+  color: #e06c75;
+}
+
+/* ── Lists ──────────────────────────────────────────────────── */
+
+.lexical-ul {
+  padding-left: 24px;
+  margin: 0.3em 0;
+  list-style-type: disc;
+}
+
+.lexical-ol {
+  padding-left: 24px;
+  margin: 0.3em 0;
+  list-style-type: decimal;
+}
+
+.lexical-li {
+  margin: 2px 0;
+}
+
+.lexical-li-nested {
+  margin-left: 16px;
+}
+
+/* ── Links ──────────────────────────────────────────────────── */
+
+.lexical-link {
+  color: #4fc1ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lexical-link:hover {
+  color: #6dd5ff;
+}
+
+/* ── Text Formatting ────────────────────────────────────────── */
+
+.lexical-bold {
+  font-weight: 700;
+}
+
+.lexical-italic {
+  font-style: italic;
+}
+
+.lexical-underline {
+  text-decoration: underline;
+}
+
+.lexical-strikethrough {
+  text-decoration: line-through;
+}
+
+/* ── Images ─────────────────────────────────────────────────── */
+
+.lexical-image {
+  display: block;
+  margin: 8px 0;
+}
+
+.lexical-image-wrapper {
+  display: block;
+  margin: 8px 0;
+  line-height: 0;
+}
+
+.lexical-image-wrapper img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* ── Horizontal Rule ────────────────────────────────────────── */
+
+.lexical-content-editable hr {
+  border: none;
+  border-top: 1px solid #444;
+  margin: 16px 0;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+
+.lexical-editor-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lexical-editor-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lexical-editor-wrapper::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.lexical-editor-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

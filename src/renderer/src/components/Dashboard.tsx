@@ -1,19 +1,23 @@
 import { useEffect, useState } from "react";
 import { Settings } from "./Settings";
 
-export function Dashboard(): React.JSX.Element {
+interface DashboardProps {
+  profileId: number;
+}
+
+export function Dashboard({ profileId }: DashboardProps): React.JSX.Element {
   const [noteCount, setNoteCount] = useState(0);
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
   const [reminderCount, setReminderCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    window.api.notes.list().then((notes) => {
+    window.api.notes.list(profileId).then((notes) => {
       setNoteCount(notes.length);
       setRecentNotes(notes.slice(0, 3));
     });
-    window.api.reminders.list().then((rems) => setReminderCount(rems.length));
-  }, []);
+    window.api.reminders.list(profileId).then((rems) => setReminderCount(rems.length));
+  }, [profileId]);
 
   const openWorkspace = () => {
     window.api.window.openWorkspace();

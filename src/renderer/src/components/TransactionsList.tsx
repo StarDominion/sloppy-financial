@@ -52,12 +52,14 @@ interface TransactionsListProps {
   profileId: number;
   onNewTransaction: () => void;
   onViewTransaction: (transactionId: number) => void;
+  onViewBill?: (billId: number) => void;
 }
 
 export function TransactionsList({
   profileId,
   onNewTransaction,
   onViewTransaction,
+  onViewBill,
 }: TransactionsListProps): React.JSX.Element {
   const [transactions, setTransactions] = useState<TransactionWithTags[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -918,6 +920,13 @@ export function TransactionsList({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
+                        cursor: txn.bill_record_id && onViewBill ? "pointer" : "default",
+                        textDecoration: txn.bill_record_id && onViewBill ? "underline" : "none",
+                      }}
+                      onClick={() => {
+                        if (txn.bill_record_id && onViewBill) {
+                          onViewBill(txn.bill_record_id);
+                        }
                       }}
                     >
                       {txn.bill_name || "—"}
@@ -926,96 +935,61 @@ export function TransactionsList({
                       style={{ padding: "10px 8px" }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {editingTagsForId === txn.id ? (
-                        <div
-                          style={{
-                            position: "relative",
-                            background: "#2a2a2a",
-                            padding: "12px",
-                            borderRadius: 6,
-                            border: "1px solid #444",
-                            minWidth: 250,
-                          }}
-                        >
-                          <TagSelector
-                            selectedTagIds={txn.tags?.map((t) => t.id) || []}
-                            onChange={(tagIds) => handleTagsChange(txn.id, tagIds)}
-                            profileId={profileId}
-                          />
-                          <button
-                            onClick={() => setEditingTagsForId(null)}
+                      <div
+                        onClick={() => setEditingTagsForId(txn.id)}
+                        style={{
+                          cursor: "pointer",
+                          padding: "4px",
+                          borderRadius: 4,
+                          minHeight: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#333")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
+                      >
+                        {txn.tags && txn.tags.length > 0 ? (
+                          <div
                             style={{
-                              marginTop: 8,
-                              padding: "6px 12px",
-                              background: "#0969da",
-                              color: "#fff",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              fontSize: 13,
-                              width: "100%",
+                              display: "flex",
+                              gap: 4,
+                              flexWrap: "wrap",
                             }}
                           >
-                            Done
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => setEditingTagsForId(txn.id)}
-                          style={{
-                            cursor: "pointer",
-                            padding: "4px",
-                            borderRadius: 4,
-                            minHeight: 24,
-                            display: "flex",
-                            alignItems: "center",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "#333")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          {txn.tags && txn.tags.length > 0 ? (
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 4,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              {txn.tags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag.id}
-                                  style={{
-                                    padding: "1px 6px",
-                                    borderRadius: 8,
-                                    fontSize: 11,
-                                    background: tag.color,
-                                    color: "#fff",
-                                  }}
-                                >
-                                  {tag.name}
-                                </span>
-                              ))}
-                              {txn.tags.length > 3 && (
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    color: "#888",
-                                  }}
-                                >
-                                  +{txn.tags.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: "#666", fontSize: 12 }}>+ Add tags</span>
-                          )}
-                        </div>
-                      )}
+                            {txn.tags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag.id}
+                                style={{
+                                  padding: "1px 6px",
+                                  borderRadius: 8,
+                                  fontSize: 11,
+                                  background: tag.color,
+                                  color: "#fff",
+                                }}
+                              >
+                                {tag.name}
+                              </span>
+                            ))}
+                            {txn.tags.length > 3 && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "#888",
+                                }}
+                              >
+                                +{txn.tags.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: "#666", fontSize: 12 }}>+ Add tags</span>
+                        )}
+                      </div>
                     </td>
                     <td
                       style={{
@@ -1043,6 +1017,64 @@ export function TransactionsList({
           </table>
         )}
       </div>
+
+      {/* Edit Tags Modal */}
+      {editingTagsForId !== null && (() => {
+        const txn = transactions.find((t) => t.id === editingTagsForId);
+        if (!txn) return null;
+        return (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+            }}
+            onClick={() => setEditingTagsForId(null)}
+          >
+            <div
+              style={{
+                background: "#1e1e1e",
+                border: "1px solid #444",
+                borderRadius: 8,
+                padding: 24,
+                minWidth: 350,
+                maxWidth: 450,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: "0 0 16px 0" }}>Edit Tags</h3>
+              <TagSelector
+                selectedTagIds={txn.tags?.map((t) => t.id) || []}
+                onChange={(tagIds) => handleTagsChange(txn.id, tagIds)}
+                profileId={profileId}
+              />
+              <button
+                onClick={() => setEditingTagsForId(null)}
+                style={{
+                  marginTop: 16,
+                  padding: "8px 16px",
+                  background: "#0969da",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  width: "100%",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Pagination */}
       {totalPages > 1 && (

@@ -7,7 +7,14 @@ type DataEventType =
   | "tax"
   | "contacts"
   | "reminders"
-  | "transactions";
+  | "transactions"
+  | "tasks"
+  | "calendar-events"
+  | "ingredients"
+  | "recipes"
+  | "meal-plans"
+  | "shopping-lists"
+  | "meal-budgets";
 
 type Listener = () => void;
 

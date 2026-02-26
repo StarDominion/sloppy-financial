@@ -67,6 +67,11 @@ export default function BillDetail({
     contact_name: string;
   } | null>(null);
   const [showOwedBySelector, setShowOwedBySelector] = useState(false);
+  const [owedTo, setOwedTo] = useState<{
+    contact_id: number;
+    contact_name: string;
+  } | null>(null);
+  const [showOwedToSelector, setShowOwedToSelector] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionInput, setDescriptionInput] = useState("");
   const [editingTags, setEditingTags] = useState(false);
@@ -116,6 +121,10 @@ export default function BillDetail({
       const owedByData = await window.api.billOwedBy.get(billId);
       setOwedBy(owedByData);
 
+      // Load owed to contact
+      const owedToData = await window.api.billOwedTo.get(billId);
+      setOwedTo(owedToData);
+
       // Load automatic bill if linked
       if (foundBill.automatic_bill_id) {
         const autoBills = await window.api.bills.listAutomatic(profileId);
@@ -152,6 +161,18 @@ export default function BillDetail({
       emitDataChange("contacts");
     } catch (err) {
       console.error("Error setting owed by:", err);
+    }
+  }
+
+  async function handleSetOwedTo(contactId: number | null) {
+    if (!bill) return;
+    try {
+      await window.api.billOwedTo.set(bill.id, contactId);
+      await loadBillDetails();
+      setShowOwedToSelector(false);
+      emitDataChange("bills");
+    } catch (err) {
+      console.error("Error setting owed to:", err);
     }
   }
 
@@ -512,45 +533,7 @@ export default function BillDetail({
 
           <div style={{ color: "#888" }}>Tags:</div>
           <div>
-            {editingTags ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <TagSelector
-                  selectedTagIds={selectedTagIds}
-                  onChange={setSelectedTagIds}
-                  profileId={profileId}
-                />
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    onClick={handleSaveTags}
-                    style={{
-                      padding: "6px 12px",
-                      background: "#2da44e",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingTags(false)}
-                    style={{
-                      padding: "6px 12px",
-                      background: "#444",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : tags.length > 0 ? (
+            {tags.length > 0 ? (
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
                 {tags.map((tag) => (
                   <span
@@ -717,6 +700,119 @@ export default function BillDetail({
               </button>
             )}
           </div>
+
+          <div style={{ color: "#888" }}>Owed To:</div>
+          <div>
+            {showOwedToSelector ? (
+              <div
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                <select
+                  defaultValue={owedTo?.contact_id ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "__create_new__") {
+                      e.target.value = owedTo?.contact_id?.toString() ?? "";
+                      onCreateContact?.();
+                      return;
+                    }
+                    handleSetOwedTo(value ? parseInt(value) : null);
+                  }}
+                  style={{
+                    padding: "6px 10px",
+                    background: "#252525",
+                    color: "#fff",
+                    border: "1px solid #444",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="">-- None --</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                  {onCreateContact && (
+                    <option value="__create_new__">+ Create new contact</option>
+                  )}
+                </select>
+                <button
+                  onClick={() => setShowOwedToSelector(false)}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#444",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : owedTo ? (
+              <div
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                <span
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "12px",
+                    fontSize: "14px",
+                    background: "#2563eb",
+                    color: "#fff",
+                  }}
+                >
+                  {owedTo.contact_name}
+                </span>
+                <button
+                  onClick={() => setShowOwedToSelector(true)}
+                  style={{
+                    padding: "4px 8px",
+                    background: "transparent",
+                    color: "#007acc",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Change
+                </button>
+                <button
+                  onClick={() => handleSetOwedTo(null)}
+                  style={{
+                    padding: "4px 8px",
+                    background: "transparent",
+                    color: "#ff6b6b",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowOwedToSelector(true)}
+                style={{
+                  padding: "6px 12px",
+                  background: "#2563eb",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                Assign Contact
+              </button>
+            )}
+          </div>
         </div>
 
         {automaticBill && (
@@ -802,6 +898,76 @@ export default function BillDetail({
           </button>
         </div>
       </div>
+
+      {/* Edit Tags Modal */}
+      {editingTags && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setEditingTags(false)}
+        >
+          <div
+            style={{
+              background: "#1e1e1e",
+              border: "1px solid #444",
+              borderRadius: 8,
+              padding: 24,
+              minWidth: 350,
+              maxWidth: 450,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 16px 0" }}>Edit Tags</h3>
+            <TagSelector
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              profileId={profileId}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button
+                onClick={handleSaveTags}
+                style={{
+                  flex: 1,
+                  padding: "8px 16px",
+                  background: "#2da44e",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingTags(false)}
+                style={{
+                  flex: 1,
+                  padding: "8px 16px",
+                  background: "#333",
+                  color: "#ddd",
+                  border: "1px solid #555",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document Preview Modal */}
       {previewUrl && (

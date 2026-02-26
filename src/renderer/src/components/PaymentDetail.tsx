@@ -56,7 +56,7 @@ interface PaymentDetailProps {
 
 export function PaymentDetail({
   paymentId,
-  profileId,
+  profileId: _profileId,
   onClose,
 }: PaymentDetailProps): React.JSX.Element {
   const [payment, setPayment] = useState<Payment | null>(null);

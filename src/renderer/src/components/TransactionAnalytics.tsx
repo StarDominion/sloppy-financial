@@ -225,7 +225,7 @@ export function TransactionAnalytics({
               cx="50%"
               cy="50%"
               outerRadius={120}
-              label={(entry) => `${entry.tag_name}: $${Number(entry.total_amount).toFixed(2)}`}
+              label={(entry: any) => `${entry.tag_name}: $${Number(entry.total_amount).toFixed(2)}`}
             >
               {tagData.map((entry, index) => (
                 <Cell
@@ -276,7 +276,7 @@ export function TransactionAnalytics({
           <YAxis stroke="#cccccc" />
           <Tooltip
             contentStyle={{ backgroundColor: "#252526", border: "1px solid #3e3e42" }}
-            formatter={(value: any, name: string) => {
+            formatter={(value: any, name?: string) => {
               if (name === "transaction_count") return Number(value);
               return `$${Number(value).toFixed(2)}`;
             }}
@@ -370,7 +370,7 @@ export function TransactionAnalytics({
           <YAxis stroke="#cccccc" />
           <Tooltip
             contentStyle={{ backgroundColor: "#252526", border: "1px solid #3e3e42" }}
-            formatter={(value: any, name: string) => {
+            formatter={(value: any, name?: string) => {
               if (name === "transaction_count") return Number(value);
               return `$${Number(value).toFixed(2)}`;
             }}

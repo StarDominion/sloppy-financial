@@ -3,13 +3,15 @@ import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { ProfileSelector } from "./components/ProfileSelector";
 import { Workspace } from "./components/Workspace";
 import { NotesEditor } from "./components/NotesEditor";
+import { MigrationStatus } from "./components/MigrationStatus";
+
+type ViewState = "workspace-select" | "profile-select" | "workspace" | "notes" | "migration-pending";
 
 function App(): React.JSX.Element {
-  const [view, setView] = useState<"workspace-select" | "profile-select" | "workspace" | "notes">(
-    "workspace-select",
-  );
+  const [view, setView] = useState<ViewState>("workspace-select");
   const [noteParams, setNoteParams] = useState<{ id?: number }>({});
   const [profileId, setProfileId] = useState<number | null>(null);
+  const [pendingMigrations, setPendingMigrations] = useState<string[]>([]);
 
   useEffect(() => {
     const handleHash = () => {
@@ -128,6 +130,16 @@ function App(): React.JSX.Element {
       {view === "workspace-select" ? (
         <WorkspaceSelector
           onWorkspaceReady={() => setView("profile-select")}
+          onMigrationsPending={(migrations) => {
+            setPendingMigrations(migrations);
+            setView("migration-pending");
+          }}
+        />
+      ) : view === "migration-pending" ? (
+        <MigrationStatus
+          pendingMigrations={pendingMigrations}
+          onComplete={() => setView("profile-select")}
+          onBack={() => setView("workspace-select")}
         />
       ) : (
         <ProfileSelector

@@ -7,10 +7,12 @@ interface RecentEntry {
 
 interface WorkspaceSelectorProps {
   onWorkspaceReady: () => void;
+  onMigrationsPending: (migrations: string[]) => void;
 }
 
 export function WorkspaceSelector({
   onWorkspaceReady,
+  onMigrationsPending,
 }: WorkspaceSelectorProps): React.JSX.Element {
   const [recentPaths, setRecentPaths] = useState<RecentEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,12 +31,20 @@ export function WorkspaceSelector({
     }
   };
 
+  const handleOpenResult = (result: { success: boolean; pendingMigrations?: string[] }) => {
+    if (result.pendingMigrations && result.pendingMigrations.length > 0) {
+      onMigrationsPending(result.pendingMigrations);
+    } else {
+      onWorkspaceReady();
+    }
+  };
+
   const handleOpenRecent = async (folderPath: string) => {
     setLoading(true);
     setError(null);
     try {
-      await window.api.workspace.open(folderPath);
-      onWorkspaceReady();
+      const result = await window.api.workspace.open(folderPath);
+      handleOpenResult(result);
     } catch (err: any) {
       setError(`Failed to open workspace: ${err.message}`);
       setLoading(false);
@@ -49,13 +59,14 @@ export function WorkspaceSelector({
     setError(null);
     try {
       // Check if it has a config.json, if not create one
+      let result: { success: boolean; pendingMigrations?: string[] };
       try {
-        await window.api.workspace.open(folderPath);
+        result = await window.api.workspace.open(folderPath);
       } catch {
         // No config.json - create workspace with defaults
-        await window.api.workspace.create(folderPath);
+        result = await window.api.workspace.create(folderPath);
       }
-      onWorkspaceReady();
+      handleOpenResult(result);
     } catch (err: any) {
       setError(`Failed to open workspace: ${err.message}`);
       setLoading(false);
@@ -69,8 +80,8 @@ export function WorkspaceSelector({
     setLoading(true);
     setError(null);
     try {
-      await window.api.workspace.create(folderPath);
-      onWorkspaceReady();
+      const result = await window.api.workspace.create(folderPath);
+      handleOpenResult(result);
     } catch (err: any) {
       setError(`Failed to create workspace: ${err.message}`);
       setLoading(false);

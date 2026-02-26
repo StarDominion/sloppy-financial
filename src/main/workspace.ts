@@ -8,7 +8,7 @@ import { MysqlProvider } from "./database/MysqlProvider";
 import { FileStorage } from "./storage/FileStorage";
 import { MinioStorageProvider } from "./storage/MinioStorageProvider";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider";
-import { runMigrations } from "./migrations";
+import { runMigrations, checkMySqlMigrationStatus } from "./migrations";
 import { initBillScheduler } from "./bills";
 import { loadAndScheduleReminders } from "./reminders";
 
@@ -220,7 +220,12 @@ export function getWorkspaceConfig(): WorkspaceConfig | null {
   return readWorkspaceConfig(currentWorkspacePath);
 }
 
-export async function openWorkspace(folderPath: string): Promise<void> {
+export interface OpenWorkspaceResult {
+  success: true;
+  pendingMigrations?: string[];
+}
+
+export async function openWorkspace(folderPath: string): Promise<OpenWorkspaceResult> {
   // Close existing DB provider if any
   try {
     await Database.getInstance().close();
@@ -259,8 +264,19 @@ export async function openWorkspace(folderPath: string): Promise<void> {
     FileStorage.setProvider(minioProvider);
   }
 
-  // Run migrations
+  // Run migrations (SQLite auto-runs; MySQL checks for pending)
   await runMigrations();
+
+  // For MySQL, check if there are pending migrations
+  if (wsConfig.database.provider === "mysql") {
+    const status = await checkMySqlMigrationStatus();
+    if (status.pending.length > 0) {
+      // Update state but don't run schedulers yet — migrations needed first
+      currentWorkspacePath = folderPath;
+      await addRecentWorkspace(folderPath);
+      return { success: true, pendingMigrations: status.pending };
+    }
+  }
 
   // Initialize schedulers (non-fatal if they fail)
   try {
@@ -273,6 +289,18 @@ export async function openWorkspace(folderPath: string): Promise<void> {
   // Update state
   currentWorkspacePath = folderPath;
   await addRecentWorkspace(folderPath);
+  return { success: true };
+}
+
+// ── Finalize workspace after migrations ─────────────────────
+
+export async function finalizeWorkspace(): Promise<void> {
+  try {
+    initBillScheduler();
+    await loadAndScheduleReminders();
+  } catch (err) {
+    console.error("Failed to initialize schedulers:", err);
+  }
 }
 
 // ── Update workspace config ─────────────────────────────────

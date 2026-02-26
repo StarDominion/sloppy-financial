@@ -1,63 +1,136 @@
 # Sloppy Financial
 
-An Electron-based personal finance management application for tracking bills, transactions, invoices, payments, and tax documents. Features AI-powered transaction categorization via Ollama and comprehensive analytics for spending insights.
+See [QA.md](./QA.md) for questions and answers.
 
-**Note:** This is a personal finance tool, not a professional accounting suite. It's designed for individual use with your own MySQL database and MinIO storage.
+An Electron-based personal finance and life management application. Track bills, transactions, invoices, payments, and tax documents. Plan meals, manage recipes, create shopping lists, and stay organized with tasks and a calendar. Features AI-powered transaction categorization via Ollama and comprehensive analytics for spending insights.
+
+Why is it called Sloppy Financial?
+Well it's made with AI, so it's kind of AI-slop, but also peoples finances will be sloppy and this aims to improve that, so double meaning.
+
+**Note:** This is a personal finance tool, not a professional accounting suite. It's designed for individual use with local SQLite storage or your own MySQL database and MinIO/local file storage.
+
+**Disclaimer:** This software is provided as-is with no warranty of any kind. The author is not responsible for any data loss, corruption, financial discrepancy, or other damages resulting from the use of this application. You are solely responsible for maintaining backups of your data. Use at your own risk.
 
 ## Features
 
-### ✅ Implemented
+### Financial Management
 
 - **Multi-Profile Support** - Create separate profiles for personal and corporate finances
 - **Bills Management**
   - Manual bill tracking with due dates and amounts
   - Automatic bill generation on scheduled intervals (weekly/monthly/yearly)
   - Bill status tracking (paid/unpaid) with payment dates
+  - Track who owes the bill and who it's paid to (linked to contacts)
+  - Match bills to imported transactions
   - Tag bills with custom categories
-  - Attach documents to bills via MinIO storage
+  - Attach documents to bills
 - **Transactions**
   - Import transactions from CSV files with AI-powered column mapping
   - Automatic transaction categorization using Ollama
   - Tag-based organization with custom colors
   - Duplicate detection (by date + amount)
-  - Tag rules for automatic categorization
+  - Tag rules for automatic categorization (substring, full string, or regex matching)
   - Transaction analytics with interactive charts (by tag, type, timeline, description)
   - Filter by type, tags, date range, and description
   - Inline tag editing directly from the list view
 - **Income & Payments**
   - Track received payments by contact
-  - Categorize payment types
+  - Categorize payment types (employment, freelance, investment, rental, refund, etc.)
   - Attach supporting documents
 - **Invoices**
-  - Create and track invoices
+  - Create and track invoices linked to contacts
   - Multiple statuses (draft/sent/paid/overdue/cancelled)
-  - Link invoices to contacts
   - Attach invoice documents
 - **Contacts**
   - Maintain contact directory with email, phone, address
   - Track amounts owed by/to contacts
   - Link contacts to bills, invoices, and payments
+- **Owed Amounts**
+  - Track money owed between contacts and the user
+  - Create owed amounts directly from bill records
+  - Mark as paid/unpaid with paid dates
 - **Tax Documents**
   - Upload and organize tax documents by year
   - Tag documents for easy retrieval
   - Year-based filtering
-- **Notes & Reminders**
-  - Built-in note-taking
+
+### Meal Planning
+
+- **Ingredients**
+  - Manage a library of ingredients with pricing and nutrition data (calories, protein, carbs, fat)
+  - Track price history per ingredient (price, quantity, store, date)
+  - Track brands per ingredient (brand name and URL)
+  - Separate nutrition unit support for label-accurate tracking
+- **Recipes**
+  - Create recipes with meal type, servings, prep/cook time, and instructions
+  - Link ingredients with quantities for automatic nutrition and cost calculations
+  - View computed nutrition totals and per-serving breakdowns
+  - View computed cost totals and cost per serving
+- **Meal Plans**
+  - Create named meal plans with start and end dates
+  - Schedule recipes to specific dates and meal slots (breakfast, lunch, snack, dinner)
+  - Track leftover servings from previous entries
+  - View daily nutrition summaries
+  - Sync meal plan entries to the calendar
+- **Shopping Lists**
+  - Create manual shopping lists or auto-generate from a meal plan
+  - Auto-aggregates ingredients and scales by servings with estimated totals
+  - Check off items as you shop
+  - Link shopping lists to financial transactions for budget tracking
+- **Meal Budgets & Analytics**
+  - Set weekly or monthly food budget targets
+  - Track spending from shopping list totals or linked transactions
+  - View cost per serving across recipes, budget vs. spending comparisons, and most-used ingredients
+
+### Organization & Productivity
+
+- **Tasks**
+  - Simple task list with title and optional description
+  - Mark tasks as complete with a completion counter
+  - Manual sort ordering
+  - Search and filter tasks
+- **Calendar**
+  - Week view and day view
+  - Create, edit, and delete events with title, description, start time, duration, and color
+  - Click on time grid to create events at specific times
+  - "Now" indicator line for current time
+  - Reminders appear as pins on the calendar
+  - Meal plan entries sync to calendar (breakfast 08:00, lunch 12:00, snack 15:00, dinner 18:00)
+- **Notes**
+  - Rich text editor powered by Lexical (headings, bold/italic/underline/strikethrough, lists, links, code blocks, horizontal rules)
+  - Search and browse notes
+  - Can be opened in a detached standalone window
+- **Reminders**
   - Scheduled reminders (once or recurring via cron)
-  - Desktop notifications for reminders
+  - Native desktop notifications
+  - Reminders display on the calendar
+
+### Other Features
+
 - **Tags System**
   - Custom color-coded tags
   - Apply tags to transactions, bills, invoices, payments, and tax documents
-  - Tag rules for automatic transaction categorization
+  - Tag rules for automatic transaction categorization (substring, full match, or regex)
+  - Tag rules can also toggle transaction type or replace descriptions
 - **Document Storage**
   - Upload and attach documents to records
   - Download documents on demand
   - MD5 hash verification
-  - Stored in MinIO object storage
+  - Stored via MinIO object storage or local filesystem
+- **Workspace System**
+  - Folder-based workspaces with per-workspace configuration
+  - Recent workspaces list for quick access
+  - Each workspace is a self-contained folder with config and data
+- **Multi-Tab Interface**
+  - Browser-like tabs for navigating between sections
+  - Tabs persist across restarts
+  - Right-click context menu on tabs
+- **Multi-Window Support**
+  - Detachable notes window
+  - Detachable workspace window
 
-### 🚧 Feature Goals
+### Feature Goals
 
-- Full local storage solution with SQLite and local folders (alternative to MySQL/MinIO)
 - Full encryption with USB key support
 - MinIO document encryption
 - Dynamic tax form system per country/state/province
@@ -65,44 +138,32 @@ An Electron-based personal finance management application for tracking bills, tr
 - One-click tax-year document export/zip for accountants
 - Rework "automatic bills" into bill definitions, which when importing bank transactions you can associate definitions instead of auto generating
 
-## Servers vs profile loading (PLANS)
+## Workspace & Storage
 
-- Profiles will list based on the servers or local storage you've configured. Have electron storage/app data store the server or local storage locations
-- Create a "Setup" page that lets you select a folder or set up mysql/minio
-- Upon opening the app, it will list profiles from all recent local storage locations. 
-- Have an option to open folder on welcome screen which will verify the folder is correctly structured first.
+Sloppy Financial uses a **folder-based workspace** model. Each workspace is a folder on disk containing a `config.json` file. You can open or create workspaces from the welcome screen's recent workspaces list.
 
-## Encryption ideas:
+### Database Providers
 
-- Any files uploaded will be encrypted before upload
-- You create an encryption key with a password, and you are asked to put in password any time you view a file.
+| Provider | Description |
+|----------|-------------|
+| **SQLite** (default) | Stores a `data.db` file inside the workspace folder. No external services needed. |
+| **MySQL** | Remote MySQL/MariaDB server. Requires host, port, user, password, and database in config. |
 
+### File Storage Providers
 
-## Prerequisites
-
-Before running Sloppy Financial, you need to set up the following services:
-
-### Required Services
-
-1. **MySQL Server** (5.7+ or 8.0+)
-   - Create a dedicated database for the application
-   - User account with full permissions on the database
-   - Default port: 3306
-
-2. **MinIO Object Storage**
-   - Used for storing documents (bills, invoices, tax documents, etc.)
-   - Create a bucket for the application (e.g., `financial-docs`)
-   - Generate access keys with read/write permissions
-   - Default port: 9000
+| Provider | Description |
+|----------|-------------|
+| **Local** (default) | Files stored in a `files/` subdirectory of the workspace folder. |
+| **MinIO** | S3-compatible object storage server. Requires endpoint, port, SSL, access/secret keys, and bucket. |
 
 ### Optional Services
 
-3. **Ollama** (for AI features)
-   - Used for CSV import column mapping and transaction categorization
-   - Install and run Ollama locally
-   - Pull a model (recommended: `llama3.2` or `mistral`)
-   - Default endpoint: http://localhost:11434
-   - AI features will be disabled if Ollama is not configured
+**Ollama** (for AI features)
+- Used for CSV import column mapping and transaction categorization
+- Install and run Ollama locally
+- Pull a model (recommended: `llama3.2` or `mistral`)
+- Default endpoint: http://localhost:11434
+- AI features will be disabled if Ollama is not configured
 
 ## Configuration
 
@@ -124,56 +185,39 @@ Sloppy Financial stores configuration in different locations depending on whethe
 - Configuration is automatically created when you use the Settings screen
 - Data persists between application updates
 
-### Initial Configuration
+### Workspace Configuration
 
-On first launch, you'll need to configure the application:
-
-1. **Launch the application** - It will open to the Settings screen if no configuration exists
-2. **Configure MySQL:**
-   ```json
-   {
-     "host": "localhost",
-     "port": 3306,
-     "user": "your_mysql_user",
-     "password": "your_mysql_password",
-     "database": "sloppy_financial"
-   }
-   ```
-3. **Configure MinIO:**
-   ```json
-   {
-     "endPoint": "localhost",
-     "port": 9000,
-     "useSSL": false,
-     "accessKey": "your_minio_access_key",
-     "secretKey": "your_minio_secret_key",
-     "bucket": "financial-docs"
-   }
-   ```
-4. **Configure Ollama (Optional):**
-   ```json
-   {
-     "host": "http://localhost:11434",
-     "model": "llama3.2"
-   }
-   ```
-5. **Test connections** using the "Test Connection" buttons
-6. **Save configuration**
-
-### Manual Configuration
-
-You can also manually create the `config.json` file:
+Each workspace folder contains a `config.json` with the following structure:
 
 ```json
 {
-  "mysql": {
+  "database": {
+    "provider": "sqlite"
+  },
+  "fileStorage": {
+    "provider": "local"
+  },
+  "ollama": {
+    "host": "http://localhost:11434",
+    "model": "llama3.2"
+  }
+}
+```
+
+For MySQL + MinIO configuration:
+
+```json
+{
+  "database": {
+    "provider": "mysql",
     "host": "localhost",
     "port": 3306,
     "user": "financial_user",
     "password": "your_secure_password",
     "database": "sloppy_financial"
   },
-  "minio": {
+  "fileStorage": {
+    "provider": "minio",
     "endPoint": "localhost",
     "port": 9000,
     "useSSL": false,
@@ -188,20 +232,20 @@ You can also manually create the `config.json` file:
 }
 ```
 
-### Database Schema
+### Database Migrations
 
-The application will not create the necessary tables on start, run the migration before starting.
+For MySQL workspaces, run migrations before first use:
 ```bash
 npm run migrate
 ```
 
-### Tables:
+SQLite workspaces run migrations automatically on open.
+
+### Database Tables
 
 - `profiles` - Multi-profile support (personal/corporate)
 - `transactions` - Financial transactions with type categorization
-- `bills` - Bill tracking (manual and automatic)
-- `automatic_bills` - Bill generation templates
-- `bill_records` - Individual bill instances
+- `bills` / `automatic_bills` / `bill_records` - Bill tracking (templates and instances)
 - `invoices` - Invoice tracking
 - `payments` - Income/payment tracking
 - `contacts` - Contact directory
@@ -209,9 +253,18 @@ npm run migrate
 - `tags` - Custom color-coded tags
 - `tag_rules` - Automatic transaction categorization rules
 - `tax_documents` - Tax document organization
-- `notes` - Note-taking
+- `notes` - Rich text notes
 - `reminders` - Scheduled reminders
-- Junction tables for many-to-many relationships (transaction_tags, bill_tags, etc.)
+- `tasks` - Task list items
+- `calendar_events` - Calendar events
+- `ingredients` - Food ingredients with nutrition and pricing
+- `ingredient_price_history` - Price history per ingredient
+- `ingredient_brands` - Brand names and URLs per ingredient
+- `recipes` / `recipe_ingredients` - Recipe definitions and linked ingredients
+- `meal_plans` / `meal_plan_entries` - Meal plans and scheduled entries
+- `shopping_lists` / `shopping_list_items` - Shopping lists and items
+- `meal_budgets` - Weekly/monthly food budget targets
+- Junction tables for many-to-many relationships (`transaction_tags`, `bill_records_tags`, etc.)
 
 ## Installation & Development
 
@@ -234,7 +287,7 @@ npm run dev
 This will:
 - Start the Electron app with hot-reload
 - Open DevTools automatically
-- Read config from `<project-root>/config.json`
+- Read config from `<project-root>/config/profile.json`
 
 ### Building for Production
 
@@ -253,13 +306,12 @@ Built applications will be in the `dist/` folder.
 
 ## Usage Guide
 
-### Creating Your First Profile
+### Getting Started
 
-1. Launch the app and configure services (see Configuration above)
-2. Click **"Switch Profile"** from the File menu
-3. Click **"Create New Profile"**
-4. Enter a profile name and select type (Personal or Corporate)
-5. Select the profile to start using it
+1. Launch the app - you'll see the workspace selector
+2. Create a new workspace (picks a folder on disk) or open an existing one
+3. Configure storage providers in the workspace settings (defaults to SQLite + local files)
+4. Create a profile (Personal or Corporate) and select it
 
 ### Importing Transactions from CSV
 
@@ -295,8 +347,9 @@ All views support date range filtering and update in real-time as you add transa
 1. Go to **Bills → Bills**
 2. Click **"New Bill Record"**
 3. Fill in name, amount, due date, and optional description
-4. Attach a document if needed
-5. Mark as paid when completed
+4. Optionally set who owes the bill and who it's paid to
+5. Attach a document if needed
+6. Mark as paid when completed
 
 #### Automatic Bills
 1. Go to **Bills → Automatic Bills**
@@ -307,6 +360,15 @@ All views support date range filtering and update in real-time as you add transa
    - Due day (day of week or day of month)
    - Optional: Specific due dates, generation advance days
 4. Bills are automatically generated based on schedule
+
+### Meal Planning Workflow
+
+1. **Add Ingredients** - Build your ingredient library with prices and nutrition data
+2. **Create Recipes** - Combine ingredients into recipes, see computed nutrition and cost
+3. **Build a Meal Plan** - Schedule recipes across dates and meal slots
+4. **Generate Shopping List** - Auto-generate from a meal plan with aggregated quantities and estimated cost
+5. **Set a Budget** - Create weekly or monthly meal budgets and track spending
+6. **Sync to Calendar** - Push meal plan entries to the calendar view
 
 ### Tags & Organization
 
@@ -324,7 +386,7 @@ Attach documents to transactions, bills, invoices, and payments:
 
 1. Click the **Upload** button on any detail screen
 2. Select a file (PDF, images, documents)
-3. File is uploaded to MinIO with MD5 hash verification
+3. File is uploaded to your configured storage (local or MinIO) with MD5 hash verification
 4. Download anytime from the detail view
 
 ## Troubleshooting
@@ -360,20 +422,24 @@ Attach documents to transactions, bills, invoices, and payments:
 - Check for duplicate transactions (by date + amount)
 
 **Tags Not Saving:**
-- Verify MySQL connection is active
+- Verify database connection is active
 - Check browser console for errors
 - Ensure profile is selected
 
 ## Tech Stack
 
-- **Framework:** Electron 28+ with Vite
-- **Frontend:** React 18 with TypeScript
+- **Framework:** Electron 39 with electron-vite 5
+- **Frontend:** React 19 with TypeScript 5.9
+- **Rich Text Editor:** Lexical 0.40
 - **Backend:** Node.js with IPC communication
-- **Database:** MySQL 5.7+/8.0+
-- **Storage:** MinIO object storage
+- **Database:** SQLite (via better-sqlite3) or MySQL 5.7+/8.0+ (via mysql2)
+- **File Storage:** Local filesystem or MinIO object storage
 - **AI:** Ollama (optional, for transaction categorization)
-- **Charts:** Recharts for analytics visualization
+- **Charts:** Recharts 3 for analytics visualization
+- **Scheduling:** node-schedule for reminder notifications and bill generation
 
 ## License
 
-This project is for personal use. Not intended for commercial distribution.
+Copyright (c) 2026. All rights reserved.
+
+This software and its source code are the exclusive property of the author. No part of this software may be reproduced, distributed, modified, reverse-engineered, or used in any form without prior written permission from the author. Unauthorized copying, distribution, or use of this software is strictly prohibited.

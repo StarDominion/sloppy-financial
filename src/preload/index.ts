@@ -319,6 +319,11 @@ const api = {
     download: (objectName: string) =>
       ipcRenderer.invoke("minio:download", objectName),
   },
+  migrations: {
+    checkStatus: () => ipcRenderer.invoke("migrations:checkStatus"),
+    checkPermissions: () => ipcRenderer.invoke("migrations:checkPermissions"),
+    run: () => ipcRenderer.invoke("migrations:run"),
+  },
   workspace: {
     listRecent: () => ipcRenderer.invoke("workspace:listRecent"),
     open: (folderPath: string) => ipcRenderer.invoke("workspace:open", folderPath),

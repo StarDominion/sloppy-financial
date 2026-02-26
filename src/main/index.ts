@@ -34,7 +34,13 @@ import {
   getCurrentWorkspacePath,
   updateWorkspaceConfig,
   removeRecentWorkspace,
+  finalizeWorkspace,
 } from "./workspace";
+import {
+  checkMySqlMigrationStatus,
+  checkMySqlPermissions,
+  runMySqlMigrations,
+} from "./migrations";
 import {
   listContacts,
   getContact,
@@ -774,13 +780,11 @@ app.whenReady().then(async () => {
     return getRecentWorkspaces();
   });
   ipcMain.handle("workspace:open", async (_, folderPath: string) => {
-    await openWorkspace(folderPath);
-    return { success: true };
+    return await openWorkspace(folderPath);
   });
   ipcMain.handle("workspace:create", async (_, folderPath: string, config?: any) => {
     await createWorkspace(folderPath, config);
-    await openWorkspace(folderPath);
-    return { success: true };
+    return await openWorkspace(folderPath);
   });
   ipcMain.handle("workspace:showOpenDialog", async () => {
     return showOpenFolderDialog();
@@ -803,6 +807,22 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("workspace:getCurrent", async () => {
     return getCurrentWorkspacePath();
+  });
+
+  // ── Migration handlers ──────────────────────────────────────
+  ipcMain.handle("migrations:checkStatus", async () => {
+    return await checkMySqlMigrationStatus();
+  });
+  ipcMain.handle("migrations:checkPermissions", async () => {
+    return await checkMySqlPermissions();
+  });
+  ipcMain.handle("migrations:run", async () => {
+    const result = await runMySqlMigrations();
+    if (!result.error) {
+      // Migrations succeeded — initialize schedulers
+      await finalizeWorkspace();
+    }
+    return result;
   });
 
   // No DB/storage initialization at startup - deferred to workspace:open

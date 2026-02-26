@@ -1174,6 +1174,21 @@ declare global {
           contentType: string;
         }>;
       };
+      migrations: {
+        checkStatus: () => Promise<{
+          pending: string[];
+          applied: string[];
+          allFiles: string[];
+        }>;
+        checkPermissions: () => Promise<{
+          hasPermissions: boolean;
+          missing: string[];
+        }>;
+        run: () => Promise<{
+          applied: string[];
+          error?: string;
+        }>;
+      };
       workspace: {
         listRecent: () => Promise<
           Array<{
@@ -1181,7 +1196,7 @@ declare global {
             lastOpened: string;
           }>
         >;
-        open: (folderPath: string) => Promise<{ success: boolean }>;
+        open: (folderPath: string) => Promise<{ success: boolean; pendingMigrations?: string[] }>;
         create: (folderPath: string, config?: any) => Promise<{ success: boolean }>;
         showOpenDialog: () => Promise<string | null>;
         showCreateDialog: () => Promise<string | null>;

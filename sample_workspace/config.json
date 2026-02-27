@@ -1,0 +1,12 @@
+{
+  "database": {
+    "provider": "sqlite"
+  },
+  "storage": {
+    "provider": "local"
+  },
+  "ollama": {
+    "host": "http://localhost:11434",
+    "model": "llama3.2"
+  }
+}

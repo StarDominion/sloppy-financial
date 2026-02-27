@@ -164,6 +164,16 @@
   background: rgba(37, 99, 235, 0.08);
 }
 
+/* Day Column Wrapper */
+.calendar-day-column {
+  position: relative;
+  pointer-events: none;
+  z-index: 3;
+}
+.calendar-day-column > * {
+  pointer-events: auto;
+}
+
 /* Now Indicator */
 .calendar-now-line {
   position: absolute;

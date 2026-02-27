@@ -1,22 +1,45 @@
 import React, { useState } from "react";
 import { emitDataChange } from "../dataEvents";
 
+type Reminder = {
+  id: number;
+  title: string;
+  body: string;
+  schedule_type: "once" | "cron";
+  scheduled_at: string | null;
+  cron_expr: string | null;
+  is_active: number;
+};
+
+function toLocalDatetimeValue(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface ReminderFormProps {
   profileId: number;
   onSave: () => void;
   onCancel: () => void;
+  editingReminder?: Reminder | null;
 }
 
 export function ReminderForm({
   profileId,
   onSave,
   onCancel,
+  editingReminder,
 }: ReminderFormProps): React.JSX.Element {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [scheduleType, setScheduleType] = useState<"once" | "cron">("once");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [cronExpr, setCronExpr] = useState("");
+  const [title, setTitle] = useState(editingReminder?.title || "");
+  const [body, setBody] = useState(editingReminder?.body || "");
+  const [scheduleType, setScheduleType] = useState<"once" | "cron">(
+    editingReminder?.schedule_type || "once",
+  );
+  const [scheduledAt, setScheduledAt] = useState(
+    editingReminder?.scheduled_at ? toLocalDatetimeValue(editingReminder.scheduled_at) : "",
+  );
+  const [cronExpr, setCronExpr] = useState(editingReminder?.cron_expr || "");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
@@ -39,20 +62,31 @@ export function ReminderForm({
 
     setSaving(true);
     try {
-      await window.api.reminders.create({
-        title: title.trim(),
-        body: body.trim(),
-        scheduleType,
-        scheduledAt:
-          scheduleType === "once" ? new Date(scheduledAt).toISOString() : null,
-        cronExpr: scheduleType === "cron" ? cronExpr.trim() : null,
-        profileId,
-      });
+      if (editingReminder) {
+        await window.api.reminders.update(editingReminder.id, {
+          title: title.trim(),
+          body: body.trim(),
+          scheduleType,
+          scheduledAt:
+            scheduleType === "once" ? new Date(scheduledAt).toISOString() : null,
+          cronExpr: scheduleType === "cron" ? cronExpr.trim() : null,
+        });
+      } else {
+        await window.api.reminders.create({
+          title: title.trim(),
+          body: body.trim(),
+          scheduleType,
+          scheduledAt:
+            scheduleType === "once" ? new Date(scheduledAt).toISOString() : null,
+          cronExpr: scheduleType === "cron" ? cronExpr.trim() : null,
+          profileId,
+        });
+      }
       emitDataChange("reminders");
       onSave();
     } catch (err) {
-      console.error("Error creating reminder:", err);
-      alert("Failed to create reminder");
+      console.error("Error saving reminder:", err);
+      alert("Failed to save reminder");
     } finally {
       setSaving(false);
     }
@@ -176,7 +210,7 @@ export function ReminderForm({
             fontWeight: "bold",
           }}
         >
-          {saving ? "Saving..." : "Create Reminder"}
+          {saving ? "Saving..." : editingReminder ? "Update Reminder" : "Create Reminder"}
         </button>
       </div>
     </form>

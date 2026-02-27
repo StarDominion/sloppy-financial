@@ -2,7 +2,9 @@
 
 See [QA.md](./QA.md) for questions and answers.
 
-An Electron-based personal finance and life management application. Track bills, transactions, invoices, payments, and tax documents. Plan meals, manage recipes, create shopping lists, and stay organized with tasks and a calendar. Features AI-powered transaction categorization via Ollama and comprehensive analytics for spending insights.
+See [OVERVIEW.md](./OVERVIEW.md) for example app usage
+
+An Electron-based personal finance and life management application. Track bills, transactions, invoices, payments, and tax documents. Plan meals, manage recipes, create shopping lists, and stay organized with tasks and a calendar. Features AI-powered transaction categorization via Ollama and comprehensive analytics for spending insights. 
 
 Why is it called Sloppy Financial?
 Well it's made with AI, so it's kind of AI-slop, but also peoples finances will be sloppy and this aims to improve that, so double meaning.
@@ -440,6 +442,12 @@ Attach documents to transactions, bills, invoices, and payments:
 
 ## License
 
-Copyright (c) 2026. All rights reserved.
+This project is licensed under the [MIT License](LICENSE).
 
-This software and its source code are the exclusive property of the author. No part of this software may be reproduced, distributed, modified, reverse-engineered, or used in any form without prior written permission from the author. Unauthorized copying, distribution, or use of this software is strictly prohibited.
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

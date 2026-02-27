@@ -89,6 +89,63 @@ export async function createReminder(data: {
   return created;
 }
 
+export async function updateReminder(
+  id: number,
+  data: {
+    title?: string;
+    body?: string;
+    scheduleType?: "once" | "cron";
+    scheduledAt?: string | null;
+    cronExpr?: string | null;
+  },
+): Promise<Reminder> {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+
+  if (data.title !== undefined) {
+    fields.push("title = ?");
+    values.push(data.title);
+  }
+  if (data.body !== undefined) {
+    fields.push("body = ?");
+    values.push(data.body);
+  }
+  if (data.scheduleType !== undefined) {
+    fields.push("schedule_type = ?");
+    values.push(data.scheduleType);
+  }
+  if (data.scheduledAt !== undefined) {
+    fields.push("scheduled_at = ?");
+    values.push(
+      data.scheduledAt
+        ? new Date(data.scheduledAt).toISOString().slice(0, 19).replace("T", " ")
+        : null,
+    );
+  }
+  if (data.cronExpr !== undefined) {
+    fields.push("cron_expr = ?");
+    values.push(data.cronExpr || null);
+  }
+
+  if (fields.length === 0) {
+    const [existing] = await query<Reminder[]>("SELECT * FROM reminders WHERE id = ?", [id]);
+    return existing;
+  }
+
+  fields.push("is_active = 1");
+  values.push(id);
+  await query(`UPDATE reminders SET ${fields.join(", ")} WHERE id = ?`, values);
+
+  const [updated] = await query<Reminder[]>("SELECT * FROM reminders WHERE id = ?", [id]);
+
+  // Reschedule
+  jobs.get(id)?.cancel();
+  jobs.delete(id);
+  scheduleReminder(updated);
+
+  return updated;
+}
+
 export async function deleteReminder(id: number): Promise<void> {
   jobs.get(id)?.cancel();
   jobs.delete(id);

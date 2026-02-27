@@ -342,77 +342,76 @@ export function Calendar({ profileId }: CalendarProps): React.JSX.Element {
             </React.Fragment>
           ))}
 
-          {/* Now indicator */}
-          {days.some((d) => isSameDay(d, today)) && (() => {
-            const now = new Date();
-            const dayIdx = days.findIndex((d) => isSameDay(d, now));
-            if (dayIdx === -1) return null;
-            const topPx = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
-            return (
-              <div
-                className="calendar-now-line"
-                style={{
-                  top: topPx,
-                  gridColumn: dayIdx + 2,
-                }}
-              />
-            );
-          })()}
+          {/* Day columns with events, reminders, and now indicator */}
+          {days.map((day, di) => (
+            <div
+              key={`day-col-${di}`}
+              className="calendar-day-column"
+              style={{
+                gridColumn: di + 2,
+                gridRow: "1 / -1",
+              }}
+            >
+              {/* Now indicator */}
+              {isSameDay(day, today) && (() => {
+                const now = new Date();
+                const topPx = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
+                return (
+                  <div
+                    className="calendar-now-line"
+                    style={{ top: topPx }}
+                  />
+                );
+              })()}
 
-          {/* Events */}
-          {days.map((day, di) =>
-            getEventsForDay(day).map((evt) => {
-              const start = parseLocalDate(evt.start_time);
-              const topPx = (start.getHours() + start.getMinutes() / 60) * HOUR_HEIGHT;
-              const heightPx = (evt.duration_minutes / 60) * HOUR_HEIGHT;
-              const endTime = new Date(start.getTime() + evt.duration_minutes * 60000);
-              return (
-                <div
-                  key={evt.id}
-                  className="calendar-event"
-                  style={{
-                    top: topPx,
-                    height: Math.max(heightPx, 20),
-                    gridColumn: di + 2,
-                    backgroundColor: evt.color || "#4a9eff",
-                    borderLeft: `3px solid ${evt.color || "#4a9eff"}`,
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDetailEvent(evt);
-                  }}
-                >
-                  <div className="calendar-event-title">{evt.title}</div>
-                  <div className="calendar-event-time">
-                    {formatTime(start)} - {formatTime(endTime)}
+              {/* Events */}
+              {getEventsForDay(day).map((evt) => {
+                const start = parseLocalDate(evt.start_time);
+                const topPx = (start.getHours() + start.getMinutes() / 60) * HOUR_HEIGHT;
+                const heightPx = (evt.duration_minutes / 60) * HOUR_HEIGHT;
+                const endTime = new Date(start.getTime() + evt.duration_minutes * 60000);
+                return (
+                  <div
+                    key={evt.id}
+                    className="calendar-event"
+                    style={{
+                      top: topPx,
+                      height: Math.max(heightPx, 20),
+                      backgroundColor: evt.color || "#4a9eff",
+                      borderLeft: `3px solid ${evt.color || "#4a9eff"}`,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDetailEvent(evt);
+                    }}
+                  >
+                    <div className="calendar-event-title">{evt.title}</div>
+                    <div className="calendar-event-time">
+                      {formatTime(start)} - {formatTime(endTime)}
+                    </div>
                   </div>
-                </div>
-              );
-            }),
-          )}
+                );
+              })}
 
-          {/* Reminders */}
-          {days.map((day, di) =>
-            getRemindersForDay(day).map((rem) => {
-              if (!rem.scheduled_at) return null;
-              const rd = new Date(rem.scheduled_at);
-              const topPx = (rd.getHours() + rd.getMinutes() / 60) * HOUR_HEIGHT;
-              return (
-                <div
-                  key={`rem-${rem.id}`}
-                  className="calendar-reminder"
-                  style={{
-                    top: topPx,
-                    gridColumn: di + 2,
-                  }}
-                  title={`Reminder: ${rem.title}\n${rem.body}`}
-                >
-                  <span className="calendar-reminder-icon">&#128276;</span>
-                  <span className="calendar-reminder-title">{rem.title}</span>
-                </div>
-              );
-            }),
-          )}
+              {/* Reminders */}
+              {getRemindersForDay(day).map((rem) => {
+                if (!rem.scheduled_at) return null;
+                const rd = new Date(rem.scheduled_at);
+                const topPx = (rd.getHours() + rd.getMinutes() / 60) * HOUR_HEIGHT;
+                return (
+                  <div
+                    key={`rem-${rem.id}`}
+                    className="calendar-reminder"
+                    style={{ top: topPx }}
+                    title={`Reminder: ${rem.title}\n${rem.body}`}
+                  >
+                    <span className="calendar-reminder-icon">&#128276;</span>
+                    <span className="calendar-reminder-title">{rem.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 

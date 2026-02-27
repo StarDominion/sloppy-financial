@@ -22,6 +22,7 @@ export function RemindersList({
 }: RemindersListProps): React.JSX.Element {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [search, setSearch] = useState("");
   const [testTitle, setTestTitle] = useState("Test Reminder");
   const [testBody, setTestBody] = useState(
@@ -255,22 +256,36 @@ export function RemindersList({
                   {formatSchedule(reminder)}
                 </div>
               </div>
-              <button
-                onClick={() => handleDelete(reminder.id)}
-                style={{
-                  marginLeft: "12px",
-                  padding: "6px 12px",
-                  background: "#5c2020",
-                  color: "#f87171",
-                  border: "1px solid #7f1d1d",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  flexShrink: 0,
-                }}
-              >
-                Delete
-              </button>
+              <div style={{ display: "flex", gap: "6px", marginLeft: "12px", flexShrink: 0 }}>
+                <button
+                  onClick={() => setEditingReminder(reminder)}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#1e3a5f",
+                    color: "#60a5fa",
+                    border: "1px solid #1e40af",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(reminder.id)}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#5c2020",
+                    color: "#f87171",
+                    border: "1px solid #7f1d1d",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -289,6 +304,25 @@ export function RemindersList({
           }}
           onCancel={() => setShowCreateModal(false)}
         />
+      </Modal>
+
+      <Modal
+        isOpen={!!editingReminder}
+        title="Edit Reminder"
+        onClose={() => setEditingReminder(null)}
+      >
+        {editingReminder && (
+          <ReminderForm
+            key={editingReminder.id}
+            profileId={profileId}
+            editingReminder={editingReminder}
+            onSave={() => {
+              setEditingReminder(null);
+              loadReminders();
+            }}
+            onCancel={() => setEditingReminder(null)}
+          />
+        )}
       </Modal>
     </div>
   );

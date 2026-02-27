@@ -67,7 +67,7 @@ export function ShoppingList({
       const listData = await window.api.shoppingLists.get(shoppingListId);
       setList(listData);
       setNameInput(listData.name);
-      const itemsData = await window.api.shoppingLists.getItems(shoppingListId);
+      const itemsData = await window.api.shoppingLists.listItems(shoppingListId);
       setItems(itemsData);
     } catch (err) {
       console.error("Error loading shopping list:", err);

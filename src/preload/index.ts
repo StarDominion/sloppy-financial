@@ -19,6 +19,13 @@ const api = {
       cronExpr?: string | null;
       profileId: number;
     }) => ipcRenderer.invoke("reminders:create", payload),
+    update: (id: number, data: {
+      title?: string;
+      body?: string;
+      scheduleType?: "once" | "cron";
+      scheduledAt?: string | null;
+      cronExpr?: string | null;
+    }) => ipcRenderer.invoke("reminders:update", { id, data }),
     delete: (id: number) => ipcRenderer.invoke("reminders:delete", id),
     testNotification: (title: string, body: string) =>
       ipcRenderer.invoke("reminders:testNotification", { title, body }),

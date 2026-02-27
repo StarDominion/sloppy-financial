@@ -8,6 +8,7 @@ import {
   createReminder,
   deleteReminder,
   listReminders,
+  updateReminder,
 } from "./reminders";
 import { sendReminderNotification } from "./notifications";
 import {
@@ -669,6 +670,7 @@ app.whenReady().then(async () => {
     return runOllamaPrompt(prompt);
   });
 
+  ipcMain.handle("reminders:update", async (_, { id, data }) => updateReminder(id, data));
   ipcMain.handle("reminders:delete", async (_, id) => deleteReminder(id));
   ipcMain.handle("reminders:testNotification", async (_, { title, body }) => {
     sendReminderNotification(title, body);

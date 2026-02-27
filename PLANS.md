@@ -6,3 +6,4 @@
 - Encryption of files and data with encryption key password input
 - Automatic zip backups, import and export.
 - Desktop notifications for reminders
+- Automated web search for ingredient costs and meal planning based on budget 

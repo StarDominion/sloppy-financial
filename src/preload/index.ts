@@ -174,6 +174,8 @@ const api = {
     deleteDocument: (id: number) =>
       ipcRenderer.invoke("tax:deleteDocument", id),
     getYears: (profileId: number) => ipcRenderer.invoke("tax:getYears", profileId),
+    exportYear: (year: number, profileId: number) =>
+      ipcRenderer.invoke("tax:exportYear", { year, profileId }),
   },
   payments: {
     list: (profileId: number) => ipcRenderer.invoke("payments:list", profileId),

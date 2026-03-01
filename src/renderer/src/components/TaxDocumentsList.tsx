@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Modal } from "./Modal";
 import { onDataChange, emitDataChange } from "../dataEvents";
 
 type TaxDocument = {
@@ -38,6 +39,12 @@ export function TaxDocumentsList({
   const [previewType, setPreviewType] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewFileName, setPreviewFileName] = useState<string>("");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportYear, setExportYear] = useState<string>("");
+  const [exportStatus, setExportStatus] = useState<
+    "idle" | "exporting" | "done" | "error"
+  >("idle");
+  const [exportMessage, setExportMessage] = useState("");
 
   useEffect(() => {
     loadDocuments();
@@ -123,6 +130,39 @@ export function TaxDocumentsList({
     }
   }
 
+  async function handleExport() {
+    if (!exportYear) return;
+    setExportStatus("exporting");
+    setExportMessage("");
+    try {
+      const result = await window.api.tax.exportYear(
+        Number(exportYear),
+        profileId,
+      );
+      if (result.success) {
+        setExportStatus("done");
+        setExportMessage(`Exported to ${result.path}`);
+      } else if (result.error === "cancelled") {
+        setExportStatus("idle");
+      } else {
+        setExportStatus("error");
+        setExportMessage(result.error || "Export failed");
+      }
+    } catch (err) {
+      setExportStatus("error");
+      setExportMessage(
+        err instanceof Error ? err.message : "Export failed",
+      );
+    }
+  }
+
+  function openExportModal() {
+    setExportModalOpen(true);
+    setExportYear(years.length > 0 ? String(years[0]) : "");
+    setExportStatus("idle");
+    setExportMessage("");
+  }
+
   const filteredDocuments = documents.filter((doc) => {
     if (filterYear !== "all" && doc.year !== Number(filterYear)) return false;
     if (searchTerm) {
@@ -177,21 +217,40 @@ export function TaxDocumentsList({
         }}
       >
         <h2 style={{ margin: 0 }}>Tax Documents</h2>
-        <button
-          onClick={onUpload}
-          style={{
-            padding: "8px 16px",
-            background: "#2da44e",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: 14,
-          }}
-        >
-          + Upload Document
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={openExportModal}
+            disabled={years.length === 0}
+            style={{
+              padding: "8px 16px",
+              background: "#007acc",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: years.length === 0 ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+              fontSize: 14,
+              opacity: years.length === 0 ? 0.5 : 1,
+            }}
+          >
+            Export for Year
+          </button>
+          <button
+            onClick={onUpload}
+            style={{
+              padding: "8px 16px",
+              background: "#2da44e",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: 14,
+            }}
+          >
+            + Upload Document
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -396,6 +455,123 @@ export function TaxDocumentsList({
           ))
         )}
       </div>
+
+      {/* Export Modal */}
+      <Modal
+        isOpen={exportModalOpen}
+        title={`Export Tax Data`}
+        onClose={() => setExportModalOpen(false)}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 14,
+                color: "#ccc",
+              }}
+            >
+              Select Year
+            </label>
+            <select
+              value={exportYear}
+              onChange={(e) => setExportYear(e.target.value)}
+              disabled={exportStatus === "exporting"}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                background: "#1e1e1e",
+                color: "#fff",
+                border: "1px solid #444",
+                borderRadius: 4,
+                fontSize: 14,
+              }}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p style={{ fontSize: 13, color: "#aaa", margin: 0 }}>
+            This will create a ZIP file containing all tax documents, a
+            transactions CSV, and a summary for the selected year.
+          </p>
+          {exportStatus === "done" && (
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "#1a3a1a",
+                border: "1px solid #2da44e",
+                borderRadius: 6,
+                color: "#4ae168",
+                fontSize: 13,
+              }}
+            >
+              Export complete! {exportMessage}
+            </div>
+          )}
+          {exportStatus === "error" && (
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "#3a1a1a",
+                border: "1px solid #cf222e",
+                borderRadius: 6,
+                color: "#ff6b6b",
+                fontSize: 13,
+              }}
+            >
+              {exportMessage}
+            </div>
+          )}
+          <div
+            style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+          >
+            <button
+              onClick={() => setExportModalOpen(false)}
+              style={{
+                padding: "8px 16px",
+                background: "transparent",
+                color: "#ccc",
+                border: "1px solid #444",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              {exportStatus === "done" ? "Close" : "Cancel"}
+            </button>
+            {exportStatus !== "done" && (
+              <button
+                onClick={handleExport}
+                disabled={!exportYear || exportStatus === "exporting"}
+                style={{
+                  padding: "8px 16px",
+                  background: "#007acc",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor:
+                    !exportYear || exportStatus === "exporting"
+                      ? "not-allowed"
+                      : "pointer",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                  opacity:
+                    !exportYear || exportStatus === "exporting" ? 0.5 : 1,
+                }}
+              >
+                {exportStatus === "exporting"
+                  ? "Preparing..."
+                  : "Export"}
+              </button>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       {/* Document Preview Modal */}
       {(previewUrl || previewLoading) && (

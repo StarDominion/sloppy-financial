@@ -99,6 +99,7 @@ import {
   deleteTaxDocument,
   getTaxYears,
 } from "./tax";
+import { exportTaxYear } from "./taxExport";
 import {
   listPayments,
   getPayment,
@@ -585,6 +586,7 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("tax:deleteDocument", async (_, id) => deleteTaxDocument(id));
   ipcMain.handle("tax:getYears", async (_, profileId: number) => getTaxYears(profileId));
+  ipcMain.handle("tax:exportYear", async (_, { year, profileId }) => exportTaxYear(year, profileId));
 
   // Payments IPC
   ipcMain.handle("payments:list", async (_, profileId: number) => listPayments(profileId));

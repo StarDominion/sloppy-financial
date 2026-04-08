@@ -289,6 +289,53 @@ export async function applyTagRulesToTransactions(
   return { updated, errors };
 }
 
+// ── Filtered Transaction Listing ─────────────────────────────────────
+
+export async function listFilteredTransactions(
+  profileId: number,
+  options: {
+    startDate?: string;
+    endDate?: string;
+    tagId?: number;
+    descriptionSubstrings?: string[];
+  },
+): Promise<Transaction[]> {
+  let whereClause = "WHERE t.profile_id = ?";
+  const params: any[] = [profileId];
+  let joinClause = "";
+
+  if (options.startDate) {
+    whereClause += " AND t.transaction_date >= ?";
+    params.push(options.startDate);
+  }
+  if (options.endDate) {
+    whereClause += " AND t.transaction_date <= ?";
+    params.push(options.endDate);
+  }
+  if (options.tagId !== undefined) {
+    joinClause += " INNER JOIN transaction_tags tt ON t.id = tt.transaction_id";
+    whereClause += " AND tt.tag_id = ?";
+    params.push(options.tagId);
+  }
+  if (options.descriptionSubstrings && options.descriptionSubstrings.length > 0) {
+    const conditions = options.descriptionSubstrings.map(() => "t.description LIKE ?").join(" OR ");
+    whereClause += ` AND (${conditions})`;
+    for (const sub of options.descriptionSubstrings) {
+      params.push(`%${sub}%`);
+    }
+  }
+
+  return query<Transaction[]>(
+    `SELECT t.*, br.name AS bill_name
+     FROM transactions t
+     LEFT JOIN bill_records br ON br.id = t.bill_record_id
+     ${joinClause}
+     ${whereClause}
+     ORDER BY t.transaction_date DESC, t.created_at DESC`,
+    params,
+  );
+}
+
 // ── Analytics Aggregation Functions ──────────────────────────────────
 
 export type TransactionAggregationByTag = {
@@ -511,4 +558,87 @@ export async function aggregateTransactionsByDescriptionFilter(
   }
 
   return results.sort((a, b) => b.total_amount - a.total_amount);
+}
+
+// ── Tag Timeline Aggregation ─────────────────────────────────────────
+
+export type TransactionAggregationTagTimeline = {
+  period: string;
+  transaction_count: number;
+  total_amount: number;
+  deposit_amount: number;
+  withdrawal_amount: number;
+  net_amount: number;
+};
+
+export async function aggregateTransactionsByTagTimeline(
+  profileId: number,
+  tagId: number,
+  granularity: "day" | "week" | "month" | "year",
+  startDate?: string,
+  endDate?: string,
+): Promise<TransactionAggregationTagTimeline[]> {
+  const db = Database.getInstance();
+  let dateFormat: string;
+
+  if (db.dialect === "sqlite") {
+    switch (granularity) {
+      case "day":
+        dateFormat = "strftime('%Y-%m-%d', t.transaction_date)";
+        break;
+      case "week":
+        dateFormat = "strftime('%Y-%W', t.transaction_date)";
+        break;
+      case "month":
+        dateFormat = "strftime('%Y-%m', t.transaction_date)";
+        break;
+      case "year":
+        dateFormat = "strftime('%Y', t.transaction_date)";
+        break;
+    }
+  } else {
+    switch (granularity) {
+      case "day":
+        dateFormat = "DATE_FORMAT(t.transaction_date, '%Y-%m-%d')";
+        break;
+      case "week":
+        dateFormat = "DATE_FORMAT(t.transaction_date, '%Y-%u')";
+        break;
+      case "month":
+        dateFormat = "DATE_FORMAT(t.transaction_date, '%Y-%m')";
+        break;
+      case "year":
+        dateFormat = "DATE_FORMAT(t.transaction_date, '%Y')";
+        break;
+    }
+  }
+
+  let whereClause = "WHERE t.profile_id = ? AND tt.tag_id = ?";
+  const params: any[] = [profileId, tagId];
+
+  if (startDate) {
+    whereClause += " AND t.transaction_date >= ?";
+    params.push(startDate);
+  }
+  if (endDate) {
+    whereClause += " AND t.transaction_date <= ?";
+    params.push(endDate);
+  }
+
+  const sql = `
+    SELECT
+      ${dateFormat} as period,
+      COUNT(*) as transaction_count,
+      SUM(t.amount) as total_amount,
+      SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END) as deposit_amount,
+      SUM(CASE WHEN t.type = 'withdrawal' THEN t.amount ELSE 0 END) as withdrawal_amount,
+      SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE -t.amount END) as net_amount
+    FROM transactions t
+    INNER JOIN transaction_tags tt ON t.id = tt.transaction_id
+    ${whereClause}
+    GROUP BY period
+    ORDER BY period ASC
+  `;
+
+  return query<TransactionAggregationTagTimeline[]>(sql, params);
 }

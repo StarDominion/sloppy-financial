@@ -89,6 +89,7 @@ import {
   setTagsForInvoice,
   getTagsForTransaction,
   setTagsForTransaction,
+  getTagUsage,
 } from "./tags";
 import {
   createTaxDocument,
@@ -130,6 +131,8 @@ import {
   aggregateTransactionsByType,
   aggregateTransactionsByPeriod,
   aggregateTransactionsByDescriptionFilter,
+  aggregateTransactionsByTagTimeline,
+  listFilteredTransactions,
 } from "./transactions";
 import {
   listTagRules,
@@ -525,6 +528,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("tags:create", async (_, data) => createTag(data));
   ipcMain.handle("tags:update", async (_, { id, data }) => updateTag(id, data));
   ipcMain.handle("tags:delete", async (_, id) => deleteTag(id));
+  ipcMain.handle("tags:getUsage", async (_, id) => getTagUsage(id));
   ipcMain.handle("tags:getForBillRecord", async (_, billRecordId) =>
     getTagsForBillRecord(billRecordId),
   );
@@ -637,6 +641,12 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("transactions:aggregateByDescription", async (_, { profileId, descriptionSubstrings, startDate, endDate }) => {
     return aggregateTransactionsByDescriptionFilter(profileId, descriptionSubstrings, startDate, endDate);
+  });
+  ipcMain.handle("transactions:aggregateByTagTimeline", async (_, { profileId, tagId, granularity, startDate, endDate }) => {
+    return aggregateTransactionsByTagTimeline(profileId, tagId, granularity, startDate, endDate);
+  });
+  ipcMain.handle("transactions:listFiltered", async (_, { profileId, options }) => {
+    return listFilteredTransactions(profileId, options);
   });
 
   // Tag Rules IPC

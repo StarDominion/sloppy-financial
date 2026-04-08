@@ -317,6 +317,14 @@ declare global {
           },
         ) => Promise<void>;
         delete: (id: number) => Promise<void>;
+        getUsage: (id: number) => Promise<{
+          bill_records: number;
+          automatic_bills: number;
+          tax_documents: number;
+          payments: number;
+          invoices: number;
+          transactions: number;
+        }>;
         getForBillRecord: (billRecordId: number) => Promise<
           Array<{
             id: number;
@@ -717,6 +725,49 @@ declare global {
             total_amount: number;
             earliest_date: string;
             latest_date: string;
+          }>
+        >;
+        aggregateByTagTimeline: (
+          profileId: number,
+          tagId: number,
+          granularity: "day" | "week" | "month" | "year",
+          startDate?: string,
+          endDate?: string,
+        ) => Promise<
+          Array<{
+            period: string;
+            transaction_count: number;
+            total_amount: number;
+            deposit_amount: number;
+            withdrawal_amount: number;
+            net_amount: number;
+          }>
+        >;
+        listFiltered: (
+          profileId: number,
+          options: {
+            startDate?: string;
+            endDate?: string;
+            tagId?: number;
+            descriptionSubstrings?: string[];
+          },
+        ) => Promise<
+          Array<{
+            id: number;
+            profile_id: number;
+            type: "deposit" | "withdrawal";
+            amount: number;
+            description: string | null;
+            transaction_date: string;
+            reference: string | null;
+            bill_record_id: number | null;
+            document_path: string | null;
+            document_storage_key: string | null;
+            document_original_name: string | null;
+            document_md5_hash: string | null;
+            created_at: string;
+            updated_at: string;
+            bill_name?: string;
           }>
         >;
       };

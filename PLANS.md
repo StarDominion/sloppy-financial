@@ -7,3 +7,4 @@
 - Automatic zip backups, import and export.
 - Desktop notifications for reminders
 - Automated web search for ingredient costs and meal planning based on budget 
+- Rework automated bills into a match-rule system to auto match transactions

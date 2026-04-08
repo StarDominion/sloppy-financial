@@ -65,6 +65,34 @@ export async function deleteTag(id: number): Promise<void> {
   await db.execute("DELETE FROM tags WHERE id = ?", [id]);
 }
 
+export async function getTagUsage(tagId: number): Promise<{
+  bill_records: number;
+  automatic_bills: number;
+  tax_documents: number;
+  payments: number;
+  invoices: number;
+  transactions: number;
+}> {
+  const db = Database.getInstance();
+  const tables = [
+    { key: "bill_records", table: "bill_records_tags", col: "tag_id" },
+    { key: "automatic_bills", table: "automatic_bills_tags", col: "tag_id" },
+    { key: "tax_documents", table: "tax_document_tags", col: "tag_id" },
+    { key: "payments", table: "payment_tags", col: "tag_id" },
+    { key: "invoices", table: "invoice_tags", col: "tag_id" },
+    { key: "transactions", table: "transaction_tags", col: "tag_id" },
+  ];
+  const result: any = {};
+  for (const { key, table, col } of tables) {
+    const rows = await db.query<{ cnt: number }>(
+      `SELECT COUNT(*) as cnt FROM ${table} WHERE ${col} = ?`,
+      [tagId],
+    );
+    result[key] = rows[0]?.cnt ?? 0;
+  }
+  return result;
+}
+
 // Bill Record Tag Associations
 export async function getTagsForBillRecord(
   billRecordId: number,

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { WorkspaceSelector } from "./components/WorkspaceSelector";
-import { ProfileSelector } from "./components/ProfileSelector";
-import { Workspace } from "./components/Workspace";
-import { NotesEditor } from "./components/NotesEditor";
-import { MigrationStatus } from "./components/MigrationStatus";
+import { WorkspaceSelector } from "./components/app/WorkspaceSelector";
+import { ProfileSelector } from "./components/app/ProfileSelector";
+import { Workspace } from "./components/app/Workspace";
+import { NotesEditor } from "./components/notes/NotesEditor";
+import { MigrationStatus } from "./components/app/MigrationStatus";
 
 type ViewState = "workspace-select" | "profile-select" | "workspace" | "notes" | "migration-pending";
 

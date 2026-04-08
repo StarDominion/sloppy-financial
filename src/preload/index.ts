@@ -124,6 +124,7 @@ const api = {
     update: (id: number, data: any) =>
       ipcRenderer.invoke("tags:update", { id, data }),
     delete: (id: number) => ipcRenderer.invoke("tags:delete", id),
+    getUsage: (id: number) => ipcRenderer.invoke("tags:getUsage", id),
     getForBillRecord: (billRecordId: number) =>
       ipcRenderer.invoke("tags:getForBillRecord", billRecordId),
     setForBillRecord: (billRecordId: number, tagIds: number[]) =>
@@ -219,6 +220,10 @@ const api = {
       ipcRenderer.invoke("transactions:aggregateByPeriod", { profileId, granularity, startDate, endDate }),
     aggregateByDescription: (profileId: number, descriptionSubstrings: string[], startDate?: string, endDate?: string) =>
       ipcRenderer.invoke("transactions:aggregateByDescription", { profileId, descriptionSubstrings, startDate, endDate }),
+    aggregateByTagTimeline: (profileId: number, tagId: number, granularity: "day" | "week" | "month" | "year", startDate?: string, endDate?: string) =>
+      ipcRenderer.invoke("transactions:aggregateByTagTimeline", { profileId, tagId, granularity, startDate, endDate }),
+    listFiltered: (profileId: number, options: { startDate?: string; endDate?: string; tagId?: number; descriptionSubstrings?: string[] }) =>
+      ipcRenderer.invoke("transactions:listFiltered", { profileId, options }),
   },
   tagRules: {
     list: (profileId: number) => ipcRenderer.invoke("tagRules:list", profileId),

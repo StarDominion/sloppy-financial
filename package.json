@@ -1,10 +1,10 @@
 {
   "name": "sloppy-financial",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "0.0.1",
+  "description": "A personal finance and file management application made for individuals. No cloud, built to be self hosted, and open source. ",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "https://github.com/StarDominion/sloppy-financial",
+  "homepage": "https://github.com/StarDominion/sloppy-financial",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

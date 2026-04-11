@@ -34,6 +34,7 @@ import { RecipeDetail } from "../meals/RecipeDetail";
 import { MealSchedule } from "../meals/MealSchedule";
 import { ShoppingList } from "../meals/ShoppingList";
 import { TagManager } from "../common/TagManager";
+import { AboutModal } from "./AboutModal";
 
 type TabType =
   | "notes"
@@ -110,6 +111,7 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
     return null;
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -426,6 +428,9 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
         break;
       case "open-settings":
         setShowSettings(true);
+        break;
+      case "about":
+        setShowAbout(true);
         break;
       case "switch-profile":
         onSwitchProfile();
@@ -798,6 +803,7 @@ export function Workspace({ profileId, onSwitchProfile }: WorkspaceProps): React
         )}
       </div>
       <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
 
       {/* Tab Context Menu */}
       {contextMenu && (() => {
